@@ -51,6 +51,23 @@ class DjangoUserRepository(UserRepository):
             return None
         return u.password
 
+    def update(
+        self,
+        user_id: int,
+        first_name: str = "",
+        last_name: str = "",
+    ) -> User:
+        fields: dict[str, str] = {}
+        if first_name:
+            fields["first_name"] = first_name
+        if last_name:
+            fields["last_name"] = last_name
+
+        if fields:
+            UserORM.objects.filter(pk=user_id).update(**fields)
+
+        return self.find_by_id(user_id)  # type: ignore[return-value]
+
     @staticmethod
     def _to_entity(u: UserORM) -> User:
         return User(

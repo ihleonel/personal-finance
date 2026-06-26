@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/AppLayout"
 import { LoginPage } from "@/pages/LoginPage"
 import { RegisterPage } from "@/pages/RegisterPage"
 import { DashboardPage } from "@/pages/DashboardPage"
+import { ProfilePage } from "@/pages/ProfilePage"
 
 export function AppRoutes() {
   return (
@@ -20,6 +21,7 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Route>
 

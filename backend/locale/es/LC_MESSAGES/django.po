@@ -1,0 +1,61 @@
+# Spanish translations for the personal-finance backend.
+msgid ""
+msgstr ""
+"Project-Id-Version: 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-06-26 16:16+0000\n"
+"PO-Revision-Date: 2026-06-26 16:16+0000\n"
+"Last-Translator: dev\n"
+"Language-Team: es\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: modules/auths/application/use_cases/login_user.py:31
+#: modules/auths/application/use_cases/register_user.py:34
+msgid "Ingresa un correo electrónico válido."
+msgstr "Ingresa un correo electrónico válido."
+
+#: modules/auths/application/use_cases/login_user.py:38
+#: modules/auths/application/use_cases/register_user.py:41
+msgid "La contraseña es obligatoria."
+msgstr "La contraseña es obligatoria."
+
+#: modules/auths/application/use_cases/login_user.py:52
+#: modules/auths/application/use_cases/login_user.py:61
+msgid "Credenciales inválidas."
+msgstr "Credenciales inválidas."
+
+#: modules/auths/application/use_cases/login_user.py:69
+msgid "La cuenta está inactiva."
+msgstr "La cuenta está inactiva."
+
+#: modules/auths/application/use_cases/register_user.py:47
+msgid "La contraseña debe tener al menos 8 caracteres."
+msgstr "La contraseña debe tener al menos 8 caracteres."
+
+#: modules/auths/application/use_cases/register_user.py:54
+msgid "Este correo ya está registrado."
+msgstr "Este correo ya está registrado."
+
+#: modules/auths/application/use_cases/update_user_profile.py:26
+msgid "Usuario no encontrado."
+msgstr "Usuario no encontrado."
+
+#: modules/auths/application/use_cases/update_user_profile.py:34
+msgid "Proporciona al menos uno de los campos: nombre o apellido."
+msgstr "Proporciona al menos uno de los campos: nombre o apellido."
+
+#: modules/auths/application/use_cases/update_user_profile.py:46
+msgid "Asegúrate de que este campo no tenga más de 150 caracteres."
+msgstr "Asegúrate de que este campo no tenga más de 150 caracteres."
+
+#: modules/auths/infrastructure/exception_handler.py:23
+msgid "Token de actualización inválido."
+msgstr "Token de actualización inválido."
+
+#: modules/auths/infrastructure/views.py:123
+msgid "Recurso no encontrado."
+msgstr "Recurso no encontrado."

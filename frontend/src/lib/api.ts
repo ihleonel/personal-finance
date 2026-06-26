@@ -1,4 +1,4 @@
-import type { AuthSession, AuthTokens } from "@/lib/schemas"
+import type { AuthSession, AuthTokens, ProfileInput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -127,4 +127,14 @@ export async function logoutRequest(refresh: string): Promise<void> {
 
 export async function fetchCurrentUser(): Promise<AuthSession["user"]> {
   return api.get<AuthSession["user"]>("/auth/me/")
+}
+
+export async function fetchProfile(): Promise<AuthSession["user"]> {
+  return api.get<AuthSession["user"]>("/auth/profile/")
+}
+
+export async function updateProfile(
+  input: ProfileInput,
+): Promise<AuthSession["user"]> {
+  return api.patch<AuthSession["user"]>("/auth/profile/", input)
 }

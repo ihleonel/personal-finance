@@ -14,9 +14,10 @@ import {
   logoutRequest,
   registerRequest,
   setUnauthorizedHandler,
+  updateProfile as updateProfileRequest,
 } from "@/lib/api"
 import { clearTokens, setTokens } from "@/auth/storage"
-import type { AuthSession, AuthUser } from "@/lib/schemas"
+import type { AuthSession, AuthUser, ProfileInput } from "@/lib/schemas"
 
 type Status = "loading" | "guest" | "authed"
 
@@ -57,6 +58,8 @@ export type AuthContextValue = {
     last_name: string
   }) => Promise<AuthSession>
   logout: () => Promise<void>
+  refreshUser: () => Promise<AuthUser>
+  updateProfile: (input: ProfileInput) => Promise<AuthUser>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -129,6 +132,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    const user = await fetchCurrentUser()
+    dispatch({ type: "LOGIN_OK", user })
+    return user
+  }, [])
+
+  const updateProfile = useCallback(async (input: ProfileInput) => {
+    const user = await updateProfileRequest(input)
+    dispatch({ type: "LOGIN_OK", user })
+    return user
+  }, [])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status: state.status,
@@ -136,8 +151,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      refreshUser,
+      updateProfile,
     }),
-    [state.status, state.user, login, register, logout],
+    [
+      state.status,
+      state.user,
+      login,
+      register,
+      logout,
+      refreshUser,
+      updateProfile,
+    ],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

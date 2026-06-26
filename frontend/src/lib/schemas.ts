@@ -30,6 +30,19 @@ export const registerSchema = z
 
 export type RegisterInput = z.infer<typeof registerSchema>
 
+export const profileSchema = z.object({
+  first_name: z
+    .string()
+    .min(1, "El nombre es obligatorio")
+    .max(150, "Máximo 150 caracteres"),
+  last_name: z
+    .string()
+    .min(1, "El apellido es obligatorio")
+    .max(150, "Máximo 150 caracteres"),
+})
+
+export type ProfileInput = z.infer<typeof profileSchema>
+
 export type AuthUser = {
   id: number
   email: string

@@ -21,3 +21,13 @@ class Email:
 
     def __str__(self) -> str:
         return self.value
+
+    @classmethod
+    def try_parse(cls, raw: object) -> "Email | None":
+        """Attempt to build an Email without raising; return None on failure."""
+        if not isinstance(raw, str):
+            return None
+        try:
+            return cls(raw)
+        except InvalidEmailError:
+            return None

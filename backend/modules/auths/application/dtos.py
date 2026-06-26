@@ -23,6 +23,12 @@ class LogoutInput:
 
 
 @dataclass(frozen=True)
+class UpdateProfileInput:
+    first_name: str = ""
+    last_name: str = ""
+
+
+@dataclass(frozen=True)
 class UserOutput:
     id: int
     email: str

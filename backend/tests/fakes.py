@@ -6,8 +6,8 @@ the application layer can be tested in isolation.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field, replace
 from typing import Optional
-from dataclasses import dataclass, field
 
 from modules.auths.application.ports import TokenService
 from modules.auths.domain.entities import User
@@ -53,6 +53,21 @@ class InMemoryUserRepository:
 
     def get_password_hash(self, email: str) -> Optional[str]:
         return self._by_email.get(email.lower(), (None, None))[1]
+
+    def update(
+        self,
+        user_id: int,
+        first_name: str = "",
+        last_name: str = "",
+    ) -> User:
+        user, password_hash = self._by_id[user_id]
+        if first_name:
+            user = replace(user, first_name=first_name)
+        if last_name:
+            user = replace(user, last_name=last_name)
+        self._by_id[user_id] = (user, password_hash)
+        self._by_email[user.email.lower()] = (user, password_hash)
+        return user
 
     def seed(
         self,

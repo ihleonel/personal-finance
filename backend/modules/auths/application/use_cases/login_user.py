@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from django.contrib.auth.hashers import check_password
+from django.utils.translation import gettext_lazy as _
 
 from modules.auths.application.dtos import (
     AuthTokensOutput,
@@ -9,11 +10,7 @@ from modules.auths.application.dtos import (
     UserOutput,
 )
 from modules.auths.application.ports import TokenService
-from modules.auths.domain.exceptions import (
-    InactiveUserError,
-    InvalidCredentialsError,
-    UserNotFoundError,
-)
+from modules.auths.application.result import Result
 from modules.auths.domain.repositories import UserRepository
 from modules.auths.domain.value_objects import Email
 
@@ -23,29 +20,69 @@ class LoginUserUseCase:
         self._repository = repository
         self._token_service = token_service
 
-    def execute(self, data: LoginInput) -> LoginOutput:
-        email = Email(data.email)
+    def execute(self, data: LoginInput) -> Result[LoginOutput]:
+        result = Result[LoginOutput]()
 
-        user = self._repository.find_by_email(email.value)
-        if user is None:
-            raise UserNotFoundError(f"No user with email {email.value}.")
+        email = Email.try_parse(data.email)
+        if email is None:
+            result.add_error(
+                "email",
+                "auth.email.invalid_format",
+                str(_("Ingresa un correo electrónico válido.")),
+            )
 
-        password_hash = self._repository.get_password_hash(email.value)
-        if not password_hash or not check_password(data.password, password_hash):
-            raise InvalidCredentialsError("Invalid credentials.")
+        if not data.password or not isinstance(data.password, str):
+            result.add_error(
+                "password",
+                "auth.password.required",
+                str(_("La contraseña es obligatoria.")),
+            )
 
-        if not user.is_active:
-            raise InactiveUserError("User is inactive.")
+        if result.has_errors and email is None:
+            return result
 
-        access, refresh = self._token_service.generate_tokens(user.id)
+        assert email is not None  # for type-checkers
 
-        return LoginOutput(
-            user=UserOutput(
-                id=user.id,
-                email=user.email,
-                first_name=user.first_name,
-                last_name=user.last_name,
-                is_active=user.is_active,
-            ),
-            tokens=AuthTokensOutput(access=access, refresh=refresh),
-        )
+        if not result.has_errors:
+            user = self._repository.find_by_email(email.value)
+            if user is None:
+                result.add_error(
+                    "email",
+                    "auth.email.invalid_credentials",
+                    str(_("Credenciales inválidas.")),
+                )
+                return result
+
+            password_hash = self._repository.get_password_hash(email.value)
+            if not password_hash or not check_password(data.password, password_hash):
+                result.add_error(
+                    "password",
+                    "auth.password.invalid_credentials",
+                    str(_("Credenciales inválidas.")),
+                )
+                return result
+
+            if not user.is_active:
+                result.add_error(
+                    "email",
+                    "auth.email.inactive",
+                    str(_("La cuenta está inactiva.")),
+                )
+                return result
+
+            access, refresh = self._token_service.generate_tokens(user.id)
+
+            return Result.ok(
+                LoginOutput(
+                    user=UserOutput(
+                        id=user.id,
+                        email=user.email,
+                        first_name=user.first_name,
+                        last_name=user.last_name,
+                        is_active=user.is_active,
+                    ),
+                    tokens=AuthTokensOutput(access=access, refresh=refresh),
+                )
+            )
+
+        return result
