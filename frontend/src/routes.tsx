@@ -3,9 +3,9 @@ import { GuestRoute } from "@/auth/GuestRoute"
 import { ProtectedRoute } from "@/auth/ProtectedRoute"
 import { AuthLayout } from "@/components/AuthLayout"
 import { AppLayout } from "@/components/AppLayout"
-import { DashboardPage } from "@/pages/DashboardPage"
 import { LoginPage } from "@/pages/LoginPage"
 import { RegisterPage } from "@/pages/RegisterPage"
+import { DashboardPage } from "@/pages/DashboardPage"
 
 export function AppRoutes() {
   return (
