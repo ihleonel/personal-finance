@@ -1,0 +1,9 @@
+{
+  "primary": {
+    "email": "cypress+e2e@personal-finance.local",
+    "password": "Cypress12345",
+    "first_name": "Cy",
+    "last_name": "Press",
+    "is_active": true
+  }
+}

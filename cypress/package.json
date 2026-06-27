@@ -1,0 +1,18 @@
+{
+  "name": "personal-finance-cypress",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "cy:open": "cypress open",
+    "cy:run": "cypress run",
+    "cy:run:chrome": "cypress run --browser chrome",
+    "test:e2e": "cypress run",
+    "test:e2e:open": "cypress open"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.2",
+    "cypress": "^14.5.4",
+    "typescript": "^5.9.3"
+  }
+}
