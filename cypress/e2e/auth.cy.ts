@@ -18,6 +18,7 @@ describe('Login', () => {
     cy.get('input[type=password]').type('wrongpass1')
     cy.contains('button', 'Iniciar sesión').click()
     cy.get('[role=alert]', { timeout: 10000 }).should('be.visible')
+    cy.contains('[role=alert]', /credenciales inválidas/i).should('be.visible')
     cy.url().should('include', '/login')
   })
 

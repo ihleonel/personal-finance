@@ -10,12 +10,14 @@ from rest_framework.views import APIView
 from django.utils.translation import gettext_lazy as _
 
 from modules.auths.application.dtos import (
+    ChangePasswordInput,
     LogoutInput,
     LoginInput,
     RegisterInput,
     UpdateProfileInput,
 )
 from modules.auths.application.result import Result, ValidationError
+from modules.auths.application.use_cases.change_password import ChangePasswordUseCase
 from modules.auths.application.use_cases.get_current_user import GetCurrentUserUseCase
 from modules.auths.application.use_cases.get_user_profile import GetUserProfileUseCase
 from modules.auths.application.use_cases.login_user import LoginUserUseCase
@@ -25,6 +27,7 @@ from modules.auths.application.use_cases.update_user_profile import UpdateUserPr
 
 from .repositories import DjangoUserRepository
 from .serializers import (
+    ChangePasswordSerializer,
     LoginSerializer,
     LogoutSerializer,
     RegisterSerializer,
@@ -152,3 +155,27 @@ class ProfileView(APIView):
             )
 
         return Response(asdict(result.value), status=status.HTTP_200_OK)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request) -> Response:
+        serializer = ChangePasswordSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        use_case = ChangePasswordUseCase(repository=_repository())
+        result = use_case.execute(
+            request.user.id, ChangePasswordInput(**serializer.to_dto())
+        )
+
+        if not result.is_success:
+            return Response(
+                _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+
+        return Response(
+            {"detail": result.value},
+            status=status.HTTP_200_OK,
+        )

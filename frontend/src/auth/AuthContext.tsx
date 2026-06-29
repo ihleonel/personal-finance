@@ -9,6 +9,7 @@ import {
 } from "react"
 import {
   ApiError,
+  changePasswordRequest,
   fetchCurrentUser,
   loginRequest,
   logoutRequest,
@@ -60,6 +61,10 @@ export type AuthContextValue = {
   logout: () => Promise<void>
   refreshUser: () => Promise<AuthUser>
   updateProfile: (input: ProfileInput) => Promise<AuthUser>
+  changePassword: (input: {
+    current_password: string
+    new_password: string
+  }) => Promise<void>
 }
 
 export const AuthContext = createContext<AuthContextValue | null>(null)
@@ -144,6 +149,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return user
   }, [])
 
+  const changePassword = useCallback(
+    async (input: { current_password: string; new_password: string }) => {
+      await changePasswordRequest(input)
+    },
+    [],
+  )
+
   const value = useMemo<AuthContextValue>(
     () => ({
       status: state.status,
@@ -153,6 +165,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshUser,
       updateProfile,
+      changePassword,
     }),
     [
       state.status,
@@ -162,6 +175,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logout,
       refreshUser,
       updateProfile,
+      changePassword,
     ],
   )
 

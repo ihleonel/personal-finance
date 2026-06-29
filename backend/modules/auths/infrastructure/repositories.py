@@ -51,6 +51,9 @@ class DjangoUserRepository(UserRepository):
             return None
         return u.password
 
+    def update_password(self, user_id: int, password_hash: str) -> None:
+        UserORM.objects.filter(pk=user_id).update(password=password_hash)
+
     def update(
         self,
         user_id: int,

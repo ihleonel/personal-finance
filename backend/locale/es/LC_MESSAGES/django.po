@@ -59,3 +59,31 @@ msgstr "Token de actualización inválido."
 #: modules/auths/infrastructure/views.py:123
 msgid "Recurso no encontrado."
 msgstr "Recurso no encontrado."
+
+#: modules/auths/application/use_cases/change_password.py:29
+msgid "Usuario no encontrado."
+msgstr "Usuario no encontrado."
+
+#: modules/auths/application/use_cases/change_password.py:37
+msgid "La contraseña actual es obligatoria."
+msgstr "La contraseña actual es obligatoria."
+
+#: modules/auths/application/use_cases/change_password.py:45
+msgid "La nueva contraseña es obligatoria."
+msgstr "La nueva contraseña es obligatoria."
+
+#: modules/auths/application/use_cases/change_password.py:51
+msgid "La contraseña debe tener al menos 8 caracteres."
+msgstr "La contraseña debe tener al menos 8 caracteres."
+
+#: modules/auths/application/use_cases/change_password.py:60
+msgid "La contraseña actual es incorrecta."
+msgstr "La contraseña actual es incorrecta."
+
+#: modules/auths/application/use_cases/change_password.py:69
+msgid "La nueva contraseña no puede ser igual a la contraseña actual."
+msgstr "La nueva contraseña no puede ser igual a la contraseña actual."
+
+#: modules/auths/application/use_cases/change_password.py:72
+msgid "Contraseña actualizada."
+msgstr "Contraseña actualizada."

@@ -138,3 +138,10 @@ export async function updateProfile(
 ): Promise<AuthSession["user"]> {
   return api.patch<AuthSession["user"]>("/auth/profile/", input)
 }
+
+export async function changePasswordRequest(input: {
+  current_password: string
+  new_password: string
+}): Promise<{ detail: string }> {
+  return api.post<{ detail: string }>("/auth/change-password/", input)
+}

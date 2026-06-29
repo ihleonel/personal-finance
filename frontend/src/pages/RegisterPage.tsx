@@ -24,18 +24,8 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { registerSchema, type RegisterInput } from "@/lib/schemas"
-import { ApiError } from "@/lib/api"
+import { extractApiError } from "@/lib/errors"
 import { useAuth } from "@/auth/useAuth"
-
-function extractApiError(err: unknown): string | null {
-  if (!(err instanceof ApiError)) return null
-  const data = err.data
-  if (data && typeof data === "object") {
-    const detail = (data as { detail?: unknown }).detail
-    if (typeof detail === "string") return detail
-  }
-  return err.message
-}
 
 export function RegisterPage() {
   const navigate = useNavigate()

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { ArrowLeft, Loader2, Lock } from "lucide-react"
+import { ArrowLeft, Eye, EyeOff, Loader2, Lock } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -24,27 +24,24 @@ import {
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useAuth } from "@/auth/useAuth"
-import { ApiError, fetchCurrentUser } from "@/lib/api"
-import { profileSchema, type ProfileInput } from "@/lib/schemas"
-
-function extractApiError(err: unknown): string | null {
-  if (!(err instanceof ApiError)) return null
-  const data = err.data
-  if (data && typeof data === "object") {
-    const detail = (data as { detail?: unknown }).detail
-    if (typeof detail === "string") return detail
-    const nonField = (data as { non_field_errors?: unknown }).non_field_errors
-    if (Array.isArray(nonField) && typeof nonField[0] === "string") {
-      return nonField[0]
-    }
-  }
-  return err.message
-}
+import { fetchCurrentUser } from "@/lib/api"
+import { extractApiError } from "@/lib/errors"
+import {
+  changePasswordSchema,
+  profileSchema,
+  type ChangePasswordInput,
+  type ProfileInput,
+} from "@/lib/schemas"
 
 export function ProfilePage() {
-  const { user, status, updateProfile } = useAuth()
+  const { user, status, updateProfile, changePassword } = useAuth()
   const navigate = useNavigate()
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+  const [submitPasswordError, setSubmitPasswordError] = useState<string | null>(
+    null,
+  )
 
   useEffect(() => {
     if (status === "authed" && !user) {
@@ -85,6 +82,44 @@ export function ProfilePage() {
       last_name: user?.last_name ?? "",
     })
     setSubmitError(null)
+  }
+
+  const passwordForm = useForm<ChangePasswordInput>({
+    resolver: zodResolver(changePasswordSchema),
+    defaultValues: {
+      current_password: "",
+      new_password: "",
+      confirm_password: "",
+    },
+  })
+
+  const isSubmittingPassword = passwordForm.formState.isSubmitting
+  const isDirtyPassword = passwordForm.formState.isDirty
+  const isValidPassword = passwordForm.formState.isValid
+
+  async function onPasswordSubmit(values: ChangePasswordInput) {
+    setSubmitPasswordError(null)
+    try {
+      await changePassword({
+        current_password: values.current_password,
+        new_password: values.new_password,
+      })
+      toast.success("Contraseña actualizada")
+      passwordForm.reset()
+    } catch (err) {
+      setSubmitPasswordError(
+        extractApiError(err) ?? "No pudimos cambiar tu contraseña",
+      )
+    }
+  }
+
+  function handlePasswordCancel() {
+    passwordForm.reset({
+      current_password: "",
+      new_password: "",
+      confirm_password: "",
+    })
+    setSubmitPasswordError(null)
   }
 
   if (!user) {
@@ -206,6 +241,153 @@ export function ProfilePage() {
                     type="button"
                     variant="outline"
                     onClick={handleCancel}
+                  >
+                    Cancelar
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </Form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Seguridad</CardTitle>
+          <CardDescription>
+            Cambiá tu contraseña de acceso. La nueva debe tener al menos 8
+            caracteres.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {submitPasswordError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{submitPasswordError}</AlertDescription>
+            </Alert>
+          ) : null}
+          <Form {...passwordForm}>
+            <form
+              onSubmit={passwordForm.handleSubmit(onPasswordSubmit)}
+              className="space-y-4"
+            >
+              <FormField
+                control={passwordForm.control}
+                name="current_password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña actual</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showCurrentPassword ? "text" : "password"}
+                          placeholder="••••••••"
+                          autoComplete="current-password"
+                          aria-label="Contraseña actual"
+                          disabled={isSubmittingPassword}
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowCurrentPassword((v) => !v)}
+                          className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                          aria-label={
+                            showCurrentPassword
+                              ? "Ocultar contraseña"
+                              : "Mostrar contraseña"
+                          }
+                        >
+                          {showCurrentPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={passwordForm.control}
+                name="new_password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nueva contraseña</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? "text" : "password"}
+                          placeholder="Mínimo 8 caracteres"
+                          autoComplete="new-password"
+                          aria-label="Nueva contraseña"
+                          disabled={isSubmittingPassword}
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword((v) => !v)}
+                          className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground"
+                          tabIndex={-1}
+                          aria-label={
+                            showNewPassword
+                              ? "Ocultar contraseña"
+                              : "Mostrar contraseña"
+                          }
+                        >
+                          {showNewPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={passwordForm.control}
+                name="confirm_password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirmar nueva contraseña</FormLabel>
+                    <FormControl>
+                      <Input
+                        type={showNewPassword ? "text" : "password"}
+                        placeholder="••••••••"
+                        autoComplete="new-password"
+                        aria-label="Confirmar nueva contraseña"
+                        disabled={isSubmittingPassword}
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex flex-wrap gap-2 pt-2">
+                <Button
+                  type="submit"
+                  disabled={isSubmittingPassword || !isDirtyPassword}
+                >
+                  {isSubmittingPassword ? (
+                    <>
+                      <Loader2 className="animate-spin" />
+                      Guardando…
+                    </>
+                  ) : (
+                    "Cambiar contraseña"
+                  )}
+                </Button>
+                {isDirtyPassword && !isSubmittingPassword ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePasswordCancel}
                   >
                     Cancelar
                   </Button>

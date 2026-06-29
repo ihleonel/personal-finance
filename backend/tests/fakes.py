@@ -79,6 +79,13 @@ class InMemoryUserRepository:
     ) -> User:
         return self.save(email, password_hash, first_name, last_name, is_active)
 
+    def update_password(self, user_id: int, password_hash: str) -> None:
+        user, _ = self._by_id[user_id]
+        email_key = user.email.lower()
+        _, _ = self._by_email[email_key]
+        self._by_id[user_id] = (user, password_hash)
+        self._by_email[email_key] = (user, password_hash)
+
 
 @dataclass
 class FakeTokenService:

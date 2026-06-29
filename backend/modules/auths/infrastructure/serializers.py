@@ -128,3 +128,30 @@ class UpdateProfileSerializer(serializers.Serializer):
             "first_name": self.validated_data.get("first_name", ""),
             "last_name": self.validated_data.get("last_name", ""),
         }
+
+
+class ChangePasswordSerializer(serializers.Serializer):
+    current_password = serializers.CharField(
+        write_only=True,
+        error_messages={
+            "required": "La contraseña actual es obligatoria.",
+            "blank": "La contraseña actual no puede estar vacía.",
+            "null": "La contraseña actual es obligatoria.",
+        },
+    )
+    new_password = serializers.CharField(
+        min_length=8,
+        write_only=True,
+        error_messages={
+            "required": "La nueva contraseña es obligatoria.",
+            "blank": "La nueva contraseña no puede estar vacía.",
+            "min_length": "La contraseña debe tener al menos 8 caracteres.",
+            "null": "La nueva contraseña es obligatoria.",
+        },
+    )
+
+    def to_dto(self) -> dict:
+        return {
+            "current_password": self.validated_data["current_password"],
+            "new_password": self.validated_data["new_password"],
+        }

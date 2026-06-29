@@ -38,3 +38,6 @@ class UserRepository(ABC):
 
     @abstractmethod
     def get_password_hash(self, email: str) -> Optional[str]: ...
+
+    @abstractmethod
+    def update_password(self, user_id: int, password_hash: str) -> None: ...

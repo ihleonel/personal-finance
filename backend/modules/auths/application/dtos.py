@@ -29,6 +29,12 @@ class UpdateProfileInput:
 
 
 @dataclass(frozen=True)
+class ChangePasswordInput:
+    current_password: str
+    new_password: str
+
+
+@dataclass(frozen=True)
 class UserOutput:
     id: int
     email: str

@@ -43,6 +43,21 @@ export const profileSchema = z.object({
 
 export type ProfileInput = z.infer<typeof profileSchema>
 
+export const changePasswordSchema = z
+  .object({
+    current_password: z.string().min(1, "La contraseña actual es obligatoria"),
+    new_password: z
+      .string()
+      .min(8, "La contraseña debe tener al menos 8 caracteres"),
+    confirm_password: z.string().min(1, "Confirmá la nueva contraseña"),
+  })
+  .refine((d) => d.new_password === d.confirm_password, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirm_password"],
+  })
+
+export type ChangePasswordInput = z.infer<typeof changePasswordSchema>
+
 export type AuthUser = {
   id: number
   email: string
