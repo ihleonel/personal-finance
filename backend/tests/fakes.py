@@ -9,6 +9,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
+from decimal import Decimal
+from typing import Optional
+
+from modules.accounts.domain.entities import Account
+from modules.accounts.domain.repositories import AccountRepository
 from modules.auths.application.ports import TokenService
 from modules.auths.domain.entities import User
 
@@ -102,3 +107,95 @@ class FakeTokenService:
 
     def blacklist_refresh(self, refresh: str) -> None:
         self.blacklisted.append(refresh)
+
+
+@dataclass
+class InMemoryAccountRepository:
+    """Implements modules.accounts.domain.repositories.AccountRepository in memory."""
+
+    _by_id: dict[int, Account] = field(default_factory=dict)
+    _next_id: int = field(default=1)
+
+    def save(
+        self,
+        owner_id: int,
+        name: str,
+        account_type: str,
+        currency: str,
+        initial_balance: Decimal,
+    ) -> Account:
+        account_id = self._next_id
+        self._next_id += 1
+        account = Account(
+            id=account_id,
+            owner_id=owner_id,
+            name=name,
+            account_type=account_type,
+            currency=currency,
+            initial_balance=initial_balance.quantize(Decimal("0.01")),
+            is_active=True,
+        )
+        self._by_id[account_id] = account
+        return account
+
+    def find_by_id(self, account_id: int) -> Optional[Account]:
+        return self._by_id.get(account_id)
+
+    def list_by_owner(self, owner_id: int) -> list[Account]:
+        return [a for a in self._by_id.values() if a.owner_id == owner_id]
+
+    def update(
+        self,
+        account_id: int,
+        name: Optional[str] = None,
+        account_type: Optional[str] = None,
+        currency: Optional[str] = None,
+        initial_balance: Optional[Decimal] = None,
+    ) -> Account:
+        current = self._by_id[account_id]
+        updated = replace(
+            current,
+            name=name if name is not None else current.name,
+            account_type=account_type if account_type is not None else current.account_type,
+            currency=currency if currency is not None else current.currency,
+            initial_balance=initial_balance.quantize(Decimal("0.01"))
+            if initial_balance is not None
+            else current.initial_balance,
+        )
+        self._by_id[account_id] = updated
+        return updated
+
+    def deactivate(self, account_id: int) -> Account:
+        current = self._by_id[account_id]
+        updated = replace(current, is_active=False)
+        self._by_id[account_id] = updated
+        return updated
+
+    def exists_active_name_for_owner(self, owner_id: int, name: str) -> bool:
+        return any(
+            a.owner_id == owner_id and a.name == name and a.is_active
+            for a in self._by_id.values()
+        )
+
+    def seed(
+        self,
+        owner_id: int,
+        name: str,
+        account_type: str = "cash",
+        currency: str = "ARS",
+        initial_balance: Decimal = Decimal("0"),
+        is_active: bool = True,
+    ) -> Account:
+        account_id = self._next_id
+        self._next_id += 1
+        account = Account(
+            id=account_id,
+            owner_id=owner_id,
+            name=name,
+            account_type=account_type,
+            currency=currency,
+            initial_balance=initial_balance.quantize(Decimal("0.01")),
+            is_active=is_active,
+        )
+        self._by_id[account_id] = account
+        return account

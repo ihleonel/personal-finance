@@ -95,7 +95,6 @@ export function ProfilePage() {
 
   const isSubmittingPassword = passwordForm.formState.isSubmitting
   const isDirtyPassword = passwordForm.formState.isDirty
-  const isValidPassword = passwordForm.formState.isValid
 
   async function onPasswordSubmit(values: ChangePasswordInput) {
     setSubmitPasswordError(null)

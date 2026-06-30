@@ -9,4 +9,5 @@ from django.urls import include, path
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('modules.auths.infrastructure.urls')),
+    path('api/accounts/', include('modules.accounts.infrastructure.urls')),
 ]

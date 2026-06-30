@@ -1,4 +1,4 @@
-import type { AuthSession, AuthTokens, ProfileInput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, ProfileInput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -144,4 +144,23 @@ export async function changePasswordRequest(input: {
   new_password: string
 }): Promise<{ detail: string }> {
   return api.post<{ detail: string }>("/auth/change-password/", input)
+}
+
+export async function fetchAccounts(): Promise<Account[]> {
+  return api.get<Account[]>("/accounts/")
+}
+
+export async function createAccount(input: AccountInput): Promise<Account> {
+  return api.post<Account>("/accounts/", input)
+}
+
+export async function updateAccount(
+  id: number,
+  input: Partial<AccountInput>,
+): Promise<Account> {
+  return api.patch<Account>(`/accounts/${id}/`, input)
+}
+
+export async function deactivateAccount(id: number): Promise<Account> {
+  return api.post<Account>(`/accounts/${id}/deactivate/`, {})
 }

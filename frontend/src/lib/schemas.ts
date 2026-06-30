@@ -75,3 +75,47 @@ export type AuthSession = {
   user: AuthUser
   tokens: AuthTokens
 }
+
+export const ACCOUNT_TYPES = [
+  { value: "cash", label: "Efectivo" },
+  { value: "bank", label: "Banco" },
+  { value: "credit_card", label: "Tarjeta de crédito" },
+  { value: "savings", label: "Ahorro" },
+  { value: "investment", label: "Inversión" },
+  { value: "other", label: "Otra" },
+] as const
+
+export const CURRENCIES = [
+  { value: "ARS", label: "Peso argentino" },
+  { value: "USD", label: "Dólar estadounidense" },
+  { value: "EUR", label: "Euro" },
+] as const
+
+export const accountSchema = z.object({
+  name: z
+    .string()
+    .min(1, "El nombre de la cuenta es obligatorio")
+    .max(100, "Asegúrate de que el nombre no tenga más de 100 caracteres."),
+  account_type: z.enum([
+    "cash",
+    "bank",
+    "credit_card",
+    "savings",
+    "investment",
+    "other",
+  ]),
+  currency: z.enum(["ARS", "USD", "EUR"]),
+  initial_balance: z.string(),
+})
+
+export type AccountInput = z.infer<typeof accountSchema>
+
+export type Account = {
+  id: number
+  owner_id: number
+  name: string
+  account_type: string
+  currency: string
+  initial_balance: string
+  is_active: boolean
+}

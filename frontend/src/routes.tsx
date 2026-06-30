@@ -7,6 +7,7 @@ import { LoginPage } from "@/pages/LoginPage"
 import { RegisterPage } from "@/pages/RegisterPage"
 import { DashboardPage } from "@/pages/DashboardPage"
 import { ProfilePage } from "@/pages/ProfilePage"
+import { AccountsPage } from "@/pages/AccountsPage"
 
 export function AppRoutes() {
   return (
@@ -21,6 +22,7 @@ export function AppRoutes() {
       <Route element={<ProtectedRoute />}>
         <Route element={<AppLayout />}>
           <Route path="/" element={<DashboardPage />} />
+          <Route path="/accounts" element={<AccountsPage />} />
           <Route path="/profile" element={<ProfilePage />} />
         </Route>
       </Route>

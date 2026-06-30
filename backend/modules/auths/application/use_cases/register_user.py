@@ -10,7 +10,7 @@ from modules.auths.application.dtos import (
     UserOutput,
 )
 from modules.auths.application.ports import TokenService
-from modules.auths.application.result import Result
+from modules.shared.application.result import Result
 from modules.auths.domain.repositories import UserRepository
 from modules.auths.domain.value_objects import Email
 

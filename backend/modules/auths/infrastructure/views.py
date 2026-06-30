@@ -16,7 +16,7 @@ from modules.auths.application.dtos import (
     RegisterInput,
     UpdateProfileInput,
 )
-from modules.auths.application.result import Result, ValidationError
+from modules.shared.application.result import Result, ValidationError
 from modules.auths.application.use_cases.change_password import ChangePasswordUseCase
 from modules.auths.application.use_cases.get_current_user import GetCurrentUserUseCase
 from modules.auths.application.use_cases.get_user_profile import GetUserProfileUseCase

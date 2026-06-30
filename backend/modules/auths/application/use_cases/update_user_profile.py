@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from django.utils.translation import gettext_lazy as _
 
 from modules.auths.application.dtos import UpdateProfileInput, UserOutput
-from modules.auths.application.result import Result
+from modules.shared.application.result import Result
 from modules.auths.domain.repositories import UserRepository
 
 

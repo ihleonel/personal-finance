@@ -7,7 +7,7 @@ from django.contrib.auth.hashers import check_password, make_password
 from django.utils.translation import gettext_lazy as _
 
 from modules.auths.application.dtos import ChangePasswordInput
-from modules.auths.application.result import Result
+from modules.shared.application.result import Result
 from modules.auths.domain.repositories import UserRepository
 
 
