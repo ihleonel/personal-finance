@@ -24,7 +24,7 @@ import {
   ACCOUNT_TYPES,
   type Account,
 } from "@/lib/schemas"
-import { deactivateAccount, fetchAccounts } from "@/lib/api"
+import { activateAccount, deactivateAccount, fetchAccounts } from "@/lib/api"
 import { formatBalance } from "@/lib/format"
 
 export function AccountsPage() {
@@ -34,6 +34,7 @@ export function AccountsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Account | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [confirmingAction, setConfirmingAction] = useState<"activate" | "deactivate" | null>(null)
 
   useEffect(() => {
     let active = true
@@ -83,7 +84,37 @@ export function AccountsPage() {
       )
     } finally {
       setConfirmingId(null)
+      setConfirmingAction(null)
     }
+  }
+
+  async function handleActivate(id: number) {
+    try {
+      const updated = await activateAccount(id)
+      setAccounts((prev) =>
+        prev.map((a) => (a.id === updated.id ? updated : a)),
+      )
+      toast.success("Cuenta activada")
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : "No pudimos activar la cuenta",
+      )
+    } finally {
+      setConfirmingId(null)
+      setConfirmingAction(null)
+    }
+  }
+
+  function startConfirm(account: Account, action: "activate" | "deactivate") {
+    setConfirmingId(account.id)
+    setConfirmingAction(action)
+  }
+
+  function cancelConfirm() {
+    setConfirmingId(null)
+    setConfirmingAction(null)
   }
 
   function handleSaved(saved: Account) {
@@ -194,40 +225,53 @@ export function AccountsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => setConfirmingId(null)}
-                              disabled={!account.is_active}
+                              onClick={cancelConfirm}
                             >
                               No
                             </Button>
                             <Button
-                              variant="destructive"
+                              variant={confirmingAction === "activate" ? "default" : "destructive"}
                               size="sm"
-                              onClick={() => handleDeactivate(account.id)}
-                              disabled={!account.is_active}
+                              onClick={() =>
+                                confirmingAction === "activate"
+                                  ? handleActivate(account.id)
+                                  : handleDeactivate(account.id)
+                              }
                             >
                               Sí
                             </Button>
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => handleEdit(account)}
-                              aria-label={`Editar ${account.name}`}
-                              disabled={!account.is_active}
-                            >
-                              <Pencil />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              onClick={() => setConfirmingId(account.id)}
-                              aria-label={`Desactivar ${account.name}`}
-                              disabled={!account.is_active}
-                            >
-                              <Power />
-                            </Button>
+                            {account.is_active ? (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => handleEdit(account)}
+                                  aria-label={`Editar ${account.name}`}
+                                >
+                                  <Pencil />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  onClick={() => startConfirm(account, "deactivate")}
+                                  aria-label={`Desactivar ${account.name}`}
+                                >
+                                  <Power />
+                                </Button>
+                              </>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                onClick={() => startConfirm(account, "activate")}
+                                aria-label={`Activar ${account.name}`}
+                              >
+                                <Power />
+                              </Button>
+                            )}
                           </div>
                         )}
                       </TableCell>

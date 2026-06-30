@@ -164,3 +164,7 @@ export async function updateAccount(
 export async function deactivateAccount(id: number): Promise<Account> {
   return api.post<Account>(`/accounts/${id}/deactivate/`, {})
 }
+
+export async function activateAccount(id: number): Promise<Account> {
+  return api.post<Account>(`/accounts/${id}/activate/`, {})
+}

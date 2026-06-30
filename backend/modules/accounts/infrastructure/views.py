@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from modules.accounts.application.dtos import CreateAccountInput, UpdateAccountInput
+from modules.accounts.application.use_cases.activate_account import ActivateAccountUseCase
 from modules.accounts.application.use_cases.create_account import CreateAccountUseCase
 from modules.accounts.application.use_cases.deactivate_account import DeactivateAccountUseCase
 from modules.accounts.application.use_cases.get_account import GetAccountUseCase
@@ -116,6 +117,25 @@ class AccountDeactivateView(APIView):
 
     def post(self, request: Request, account_id: int) -> Response:
         use_case = DeactivateAccountUseCase(repository=_repository())
+        result = use_case.execute(request.user.id, account_id)
+        if not result.is_success:
+            code = result.errors[0].code if result.errors else ""
+            if code == "accounts.account.not_found":
+                return Response(
+                    {"detail": result.errors[0].message, "code": code},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(_output_to_dict(result.value), status=status.HTTP_200_OK)
+
+
+class AccountActivateView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, account_id: int) -> Response:
+        use_case = ActivateAccountUseCase(repository=_repository())
         result = use_case.execute(request.user.id, account_id)
         if not result.is_success:
             code = result.errors[0].code if result.errors else ""

@@ -1,6 +1,6 @@
 from django.urls import path
 
-from .views import AccountDeactivateView, AccountDetailView, AccountListCreateView
+from .views import AccountActivateView, AccountDeactivateView, AccountDetailView, AccountListCreateView
 
 
 urlpatterns = [
@@ -10,5 +10,10 @@ urlpatterns = [
         "<int:account_id>/deactivate/",
         AccountDeactivateView.as_view(),
         name="accounts-deactivate",
+    ),
+    path(
+        "<int:account_id>/activate/",
+        AccountActivateView.as_view(),
+        name="accounts-activate",
     ),
 ]

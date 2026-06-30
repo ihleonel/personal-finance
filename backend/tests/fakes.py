@@ -171,6 +171,12 @@ class InMemoryAccountRepository:
         self._by_id[account_id] = updated
         return updated
 
+    def activate(self, account_id: int) -> Account:
+        current = self._by_id[account_id]
+        updated = replace(current, is_active=True)
+        self._by_id[account_id] = updated
+        return updated
+
     def exists_active_name_for_owner(self, owner_id: int, name: str) -> bool:
         return any(
             a.owner_id == owner_id and a.name == name and a.is_active

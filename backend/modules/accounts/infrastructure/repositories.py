@@ -65,6 +65,10 @@ class DjangoAccountRepository(AccountRepository):
         AccountORM.objects.filter(pk=account_id).update(is_active=False)
         return self.find_by_id(account_id)  # type: ignore[return-value]
 
+    def activate(self, account_id: int) -> Account:
+        AccountORM.objects.filter(pk=account_id).update(is_active=True)
+        return self.find_by_id(account_id)  # type: ignore[return-value]
+
     def exists_active_name_for_owner(self, owner_id: int, name: str) -> bool:
         return AccountORM.objects.filter(
             owner_id=owner_id, name=name, is_active=True

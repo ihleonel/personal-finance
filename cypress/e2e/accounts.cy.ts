@@ -162,4 +162,31 @@ describe('Cuentas', () => {
       })
     })
   })
+
+  it('activa una cuenta inactiva y refleja el estado', () => {
+    deactivateAllActiveAccounts().then(() => {
+      createAccountViaApi({
+        name: ACCOUNT_NAME,
+        account_type: 'cash',
+        currency: 'ARS',
+        initial_balance: '0',
+      }).then((res) => {
+        const accountId = res.body.id
+        cy.request({
+          method: 'POST',
+          url: `/api/accounts/${accountId}/deactivate/`,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        }).then(() => {
+          cy.visit('/accounts')
+          cy.contains(ACCOUNT_NAME, { timeout: 10000 }).should('be.visible')
+          cy.contains('Inactivo').should('be.visible')
+
+          cy.get(`button[aria-label="Activar ${ACCOUNT_NAME}"]`).first().click()
+          cy.contains('button', 'Sí').click()
+
+          cy.contains('Activo', { timeout: 10000 }).should('be.visible')
+        })
+      })
+    })
+  })
 })
