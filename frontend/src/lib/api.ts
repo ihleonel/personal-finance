@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, ImportTransactionResult, ProfileInput, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, ImportTransactionResult, PaginatedResponse, ProfileInput, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -193,21 +193,25 @@ export async function activateCategory(id: number): Promise<Category> {
   return api.post<Category>(`/categories/${id}/activate/`, {})
 }
 
-function buildQueryString(filters: TransactionFilters): string {
+function buildQueryString(filters: TransactionFilters, page?: number): string {
   const params = new URLSearchParams()
   if (filters.account_id != null) params.set("account_id", String(filters.account_id))
   if (filters.kind) params.set("kind", filters.kind)
   if (filters.category_id != null) params.set("category_id", String(filters.category_id))
   if (filters.date_from) params.set("date_from", filters.date_from)
   if (filters.date_to) params.set("date_to", filters.date_to)
+  if (page != null && page > 1) params.set("page", String(page))
   const qs = params.toString()
   return qs ? `?${qs}` : ""
 }
 
 export async function fetchTransactions(
   filters?: TransactionFilters,
-): Promise<Transaction[]> {
-  return api.get<Transaction[]>(`/transactions/${buildQueryString(filters ?? {})}`)
+  page?: number,
+): Promise<PaginatedResponse<Transaction>> {
+  return api.get<PaginatedResponse<Transaction>>(
+    `/transactions/${buildQueryString(filters ?? {}, page)}`,
+  )
 }
 
 export async function createTransaction(

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import asdict
 
 from rest_framework import status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
@@ -82,8 +83,16 @@ def _not_found_response(result) -> Response:
     return Response(_errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST)
 
 
+class TransactionPagination(PageNumberPagination):
+    page_size = 30
+    page_query_param = "page"
+    page_size_query_param = None
+    max_page_size = 100
+
+
 class TransactionListCreateView(APIView):
     permission_classes = [IsAuthenticated]
+    pagination_class = TransactionPagination
 
     def get(self, request: Request) -> Response:
         serializer = ListTransactionsQuerySerializer(data=request.query_params)
@@ -99,8 +108,12 @@ class TransactionListCreateView(APIView):
             return Response(
                 _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
             )
-        return Response(
-            [_output_to_dict(o) for o in result.value], status=status.HTTP_200_OK
+        paginator = self.pagination_class()
+        page = paginator.paginate_queryset(result.value, request, view=self)
+        if page is None:
+            return paginator.get_paginated_response([])
+        return paginator.get_paginated_response(
+            [_output_to_dict(o) for o in page]
         )
 
     def post(self, request: Request) -> Response:

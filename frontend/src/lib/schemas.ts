@@ -169,6 +169,13 @@ export type TransactionFilters = {
   date_to?: string
 }
 
+export type PaginatedResponse<T> = {
+  count: number
+  next: string | null
+  previous: string | null
+  results: T[]
+}
+
 export const transactionSchema = z.object({
   account_id: z.number({ error: "La cuenta es obligatoria." }),
   kind: z.enum(["income", "expense"]),

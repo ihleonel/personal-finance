@@ -74,35 +74,44 @@ describe('Transacciones', () => {
 
   function deleteAllTransactions() {
     if (!accessToken) return cy.wrap(null)
-    return cy
-      .request({
-        method: 'GET',
-        url: '/api/transactions/',
-        headers: { Authorization: `Bearer ${accessToken}` },
-      })
-      .then((res: Cypress.Response<unknown>) => {
-        const txs = res.body as Array<{
-          id: number
-          transfer_group_id: string | null
-        }>
-        const seenGroups = new Set<string>()
-        const toDelete: number[] = []
-        for (const t of txs) {
-          if (t.transfer_group_id != null) {
-            if (seenGroups.has(t.transfer_group_id)) continue
-            seenGroups.add(t.transfer_group_id)
+    const collectAll = (
+      pageNum: number,
+      acc: Array<{ id: number; transfer_group_id: string | null }>,
+    ): Cypress.Chainable<Array<{ id: number; transfer_group_id: string | null }>> =>
+      cy
+        .request({
+          method: 'GET',
+          url: `/api/transactions/?page=${pageNum}`,
+          headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        .then((res: Cypress.Response<unknown>) => {
+          const body = res.body as {
+            results: Array<{ id: number; transfer_group_id: string | null }>
+            next: string | null
           }
-          toDelete.push(t.id)
+          const merged = acc.concat(body.results)
+          if (body.next == null) return cy.wrap(merged)
+          return collectAll(pageNum + 1, merged)
+        })
+    return collectAll(1, []).then((txs: Array<{ id: number; transfer_group_id: string | null }>) => {
+      const seenGroups = new Set<string>()
+      const toDelete: number[] = []
+      for (const t of txs) {
+        if (t.transfer_group_id != null) {
+          if (seenGroups.has(t.transfer_group_id)) continue
+          seenGroups.add(t.transfer_group_id)
         }
-        if (toDelete.length === 0) return cy.wrap(null)
-        return cy.wrap(toDelete).each((id: number) => {
-          return cy.request({
-            method: 'DELETE',
-            url: `/api/transactions/${id}/`,
-            headers: { Authorization: `Bearer ${accessToken}` },
-          })
+        toDelete.push(t.id)
+      }
+      if (toDelete.length === 0) return cy.wrap(null)
+      return cy.wrap(toDelete).each((id: number) => {
+        return cy.request({
+          method: 'DELETE',
+          url: `/api/transactions/${id}/`,
+          headers: { Authorization: `Bearer ${accessToken}` },
         })
       })
+    })
   }
 
   function createAccountViaApi(input: {
@@ -672,7 +681,31 @@ describe('Transacciones', () => {
         cy.get('[data-testid="import-summary-errors"]').should('contain', '0')
 
         cy.get('[data-testid="import-close"]').click()
-        cy.contains('OUTSOURCE ARGENTINA SAS', { timeout: 15000 }).should('be.visible')
+
+        cy.wrap(null).then(() => {
+          const findInPages = (
+            pageNum: number,
+          ): Cypress.Chainable<unknown> =>
+            cy
+              .request({
+                method: 'GET',
+                url: `/api/transactions/?page=${pageNum}`,
+                headers: { Authorization: `Bearer ${accessToken}` },
+              })
+              .then((res: Cypress.Response<unknown>) => {
+                const body = res.body as {
+                  results: Array<{ description: string }>
+                  next: string | null
+                }
+                const found = body.results.some(
+                  (r) => r.description === 'OUTSOURCE ARGENTINA SAS',
+                )
+                if (found) return cy.wrap(true)
+                if (body.next == null) return cy.wrap(false)
+                return findInPages(pageNum + 1)
+              })
+          return findInPages(1).should('eq', true)
+        })
       })
   })
 
@@ -697,7 +730,31 @@ describe('Transacciones', () => {
         cy.get('[data-testid="import-summary-errors"]').should('contain', '0')
 
         cy.get('[data-testid="import-close"]').click()
-        cy.contains('Rendimientos', { timeout: 15000 }).should('be.visible')
+
+        cy.wrap(null).then(() => {
+          const findInPages = (
+            pageNum: number,
+          ): Cypress.Chainable<unknown> =>
+            cy
+              .request({
+                method: 'GET',
+                url: `/api/transactions/?page=${pageNum}`,
+                headers: { Authorization: `Bearer ${accessToken}` },
+              })
+              .then((res: Cypress.Response<unknown>) => {
+                const body = res.body as {
+                  results: Array<{ description: string }>
+                  next: string | null
+                }
+                const found = body.results.some(
+                  (r) => r.description === 'Rendimientos',
+                )
+                if (found) return cy.wrap(true)
+                if (body.next == null) return cy.wrap(false)
+                return findInPages(pageNum + 1)
+              })
+          return findInPages(1).should('eq', true)
+        })
       })
   })
 
@@ -718,8 +775,9 @@ describe('Transacciones', () => {
         cy.get('[data-testid="import-summary-created"]', { timeout: 15000 }).should('contain', '67')
         cy.get('[data-testid="import-close"]').click()
 
-        // Contar filas tras primera importación
-        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 67)
+        // Contar filas tras primera importación (página 1 de 30)
+        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 30)
+        cy.get('[data-testid="tx-pagination-info"]').should('contain', '67')
 
         // Segunda importación del mismo archivo a la misma cuenta
         cy.contains('button', 'Importar').click()
@@ -735,8 +793,9 @@ describe('Transacciones', () => {
         cy.get('[data-testid="import-summary-skipped"]').should('contain', '67')
         cy.get('[data-testid="import-close"]').click()
 
-        // No se duplicaron filas
-        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 67)
+        // No se duplicaron filas: sigue habiendo 67 totales, 30 en página 1
+        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 30)
+        cy.get('[data-testid="tx-pagination-info"]').should('contain', '67')
       })
   })
 
@@ -825,6 +884,45 @@ describe('Transacciones', () => {
 
         cy.get('[data-testid="import-close"]').click()
         cy.contains('OUTSOURCE ARGENTINA SAS', { timeout: 15000 }).should('be.visible')
+      })
+  })
+
+  it('pagina transacciones cuando hay más de 30', () => {
+    deleteAllTransactions()
+      .then(() => seedAccountsAndCategories())
+      .then(({ account1 }: Seed) => {
+        const create35 = (i: number): Cypress.Chainable<unknown> => {
+          if (i >= 35) return cy.wrap(null)
+          return createTransactionViaApi({
+            account_id: account1.id,
+            kind: 'income',
+            amount: '10',
+            date: todayISO(),
+            description: `Pag ${i} ${Date.now()}`,
+          }).then(() => create35(i + 1))
+        }
+        return create35(0)
+      })
+      .then(() => {
+        cy.visit('/transactions')
+
+        // Página 1: 30 filas, prev deshabilitado, next habilitado
+        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 30)
+        cy.get('[data-testid="tx-pagination-info"]').should('contain', '35')
+        cy.get('[data-testid="tx-pagination-prev"]').should('be.disabled')
+        cy.get('[data-testid="tx-pagination-next"]').should('not.be.disabled')
+
+        // Ir a página 2: 5 filas, prev habilitado, next deshabilitado
+        cy.get('[data-testid="tx-pagination-next"]').click()
+        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 5)
+        cy.get('[data-testid="tx-pagination-info"]').should('contain', 'Página 2 de 2')
+        cy.get('[data-testid="tx-pagination-prev"]').should('not.be.disabled')
+        cy.get('[data-testid="tx-pagination-next"]').should('be.disabled')
+
+        // Volver a página 1
+        cy.get('[data-testid="tx-pagination-prev"]').click()
+        cy.get('main table tbody tr', { timeout: 15000 }).should('have.length', 30)
+        cy.get('[data-testid="tx-pagination-info"]').should('contain', 'Página 1 de 2')
       })
   })
 })

@@ -7,7 +7,6 @@ App de finanzas personales. Backend Django (DDD/clean architecture) + frontend R
 - `backend/` — Django 5 + DRF + SimpleJWT. Proyecto Django en `config/`; feature modules en `modules/<feature>/` con capas `domain/`, `application/` (use cases, dtos, ports, result), `infrastructure/` (views, serializers, repositories, services, urls). Tests unitarios en `backend/tests/` usando fakes en memoria (`tests/fakes.py`), NO tocan DB.
 - `frontend/` — React 19 + Vite + TypeScript + Tailwind v4 + shadcn (estilo `radix-nova`). Alias `@` → `src/`. Rutas en `src/routes.tsx`. API client en `src/lib/api.ts` (prefija `/api`, el proxy de Vite lo reenvía a `backend:8000`).
 - `cypress/` — suite e2e independiente con su propio `package.json`. `baseUrl` y puertos se toman del `.env` local (ver abajo).
-- `data/` — CSV de ejemplo, no código.
 
 ## Setup y entorno
 

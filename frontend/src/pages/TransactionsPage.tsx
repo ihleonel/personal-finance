@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ArrowRightLeft, Loader2, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react"
+import { ArrowRightLeft, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -38,6 +38,8 @@ import {
   type TransactionFilters,
   type TransferOutput,
 } from "@/lib/schemas"
+
+const PAGE_SIZE = 30
 import {
   deleteTransaction,
   fetchAccounts,
@@ -53,6 +55,8 @@ export function TransactionsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filters, setFilters] = useState<TransactionFilters>({})
+  const [page, setPage] = useState(1)
+  const [count, setCount] = useState(0)
   const [txDialogOpen, setTxDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
@@ -78,10 +82,11 @@ export function TransactionsPage() {
 
   useEffect(() => {
     let active = true
-    fetchTransactions(filters)
+    fetchTransactions(filters, page)
       .then((data) => {
         if (active) {
-          setTransactions(data)
+          setTransactions(data.results)
+          setCount(data.count)
           setError(null)
           setLoading(false)
         }
@@ -97,7 +102,7 @@ export function TransactionsPage() {
     return () => {
       active = false
     }
-  }, [filters])
+  }, [filters, page])
 
   function handleNewTx() {
     setEditing(null)
@@ -110,6 +115,22 @@ export function TransactionsPage() {
   }
 
   function handleTxSaved(saved: Transaction) {
+    if (page > 1) {
+      setLoading(true)
+      fetchTransactions(filters, page)
+        .then((data) => {
+          setTransactions(data.results)
+          setCount(data.count)
+          setError(null)
+        })
+        .catch((err: unknown) => {
+          setError(
+            err instanceof Error ? err.message : "No pudimos cargar tus transacciones",
+          )
+        })
+        .finally(() => setLoading(false))
+      return
+    }
     setTransactions((prev) => {
       const idx = prev.findIndex((t) => t.id === saved.id)
       if (idx === -1) return [saved, ...prev]
@@ -120,14 +141,31 @@ export function TransactionsPage() {
   }
 
   function handleTransferSaved(transfer: TransferOutput) {
+    if (page > 1) {
+      setLoading(true)
+      fetchTransactions(filters, page)
+        .then((data) => {
+          setTransactions(data.results)
+          setCount(data.count)
+          setError(null)
+        })
+        .catch((err: unknown) => {
+          setError(
+            err instanceof Error ? err.message : "No pudimos cargar tus transacciones",
+          )
+        })
+        .finally(() => setLoading(false))
+      return
+    }
     setTransactions((prev) => [transfer.source, transfer.destination, ...prev])
   }
 
   function handleImported() {
     setLoading(true)
-    fetchTransactions(filters)
+    fetchTransactions(filters, page)
       .then((data) => {
-        setTransactions(data)
+        setTransactions(data.results)
+        setCount(data.count)
         setError(null)
       })
       .catch((err: unknown) => {
@@ -149,6 +187,14 @@ export function TransactionsPage() {
         }
         return prev.filter((t) => t.id !== id)
       })
+      setCount((prev) => prev - (groupId != null ? 2 : 1))
+      setPage((prevPage) => {
+        const remaining = transactions.length - (groupId != null ? 2 : 1)
+        if (prevPage > 1 && remaining === 0) {
+          return prevPage - 1
+        }
+        return prevPage
+      })
       toast.success("Transacción eliminada")
     } catch (err) {
       toast.error(
@@ -164,11 +210,13 @@ export function TransactionsPage() {
     value: TransactionFilters[K],
   ) {
     setLoading(true)
+    setPage(1)
     setFilters((prev) => ({ ...prev, [key]: value || undefined }))
   }
 
   function clearFilters() {
     setLoading(true)
+    setPage(1)
     setFilters({})
   }
 
@@ -176,6 +224,7 @@ export function TransactionsPage() {
     accounts.find((a) => a.id === id)?.name ?? "—"
   const categoryName = (id: number | null) =>
     id == null ? "—" : categories.find((c) => c.id === id)?.name ?? "—"
+  const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -443,6 +492,36 @@ export function TransactionsPage() {
               </TableBody>
             </Table>
           )}
+
+          {count > 0 ? (
+            <div className="mt-4 flex items-center justify-between border-t pt-4">
+              <p className="text-sm text-muted-foreground" data-testid="tx-pagination-info">
+                {count} {count === 1 ? "movimiento" : "movimientos"} · Página {page} de {totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setLoading(true); setPage((p) => Math.max(1, p - 1)) }}
+                  disabled={page <= 1}
+                  data-testid="tx-pagination-prev"
+                >
+                  <ChevronLeft />
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => { setLoading(true); setPage((p) => p + 1) }}
+                  disabled={page >= totalPages}
+                  data-testid="tx-pagination-next"
+                >
+                  Siguiente
+                  <ChevronRight />
+                </Button>
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
