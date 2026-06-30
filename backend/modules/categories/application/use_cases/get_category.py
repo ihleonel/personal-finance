@@ -1,0 +1,36 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+from django.utils.translation import gettext_lazy as _
+
+from modules.categories.application.dtos import CategoryOutput
+from modules.categories.domain.repositories import CategoryRepository
+from modules.shared.application.result import Result
+
+
+@dataclass
+class GetCategoryUseCase:
+    repository: CategoryRepository
+
+    def execute(self, owner_id: int, category_id: int) -> Result[CategoryOutput]:
+        result = Result[CategoryOutput]()
+
+        category = self.repository.find_by_id(category_id)
+        if category is None or category.owner_id != owner_id:
+            result.add_error(
+                "non_field_errors",
+                "categories.category.not_found",
+                str(_("Categoría no encontrada.")),
+            )
+            return result
+
+        return Result.ok(
+            CategoryOutput(
+                id=category.id or 0,
+                owner_id=category.owner_id,
+                name=category.name,
+                kind=category.kind,
+                is_active=category.is_active,
+            )
+        )

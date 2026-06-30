@@ -16,6 +16,8 @@ from modules.accounts.domain.entities import Account
 from modules.accounts.domain.repositories import AccountRepository
 from modules.auths.application.ports import TokenService
 from modules.auths.domain.entities import User
+from modules.categories.domain.entities import Category
+from modules.categories.domain.repositories import CategoryRepository
 
 
 @dataclass
@@ -205,3 +207,82 @@ class InMemoryAccountRepository:
         )
         self._by_id[account_id] = account
         return account
+
+
+@dataclass
+class InMemoryCategoryRepository:
+    """Implements modules.categories.domain.repositories.CategoryRepository in memory."""
+
+    _by_id: dict[int, Category] = field(default_factory=dict)
+    _next_id: int = field(default=1)
+
+    def save(self, owner_id: int, name: str, kind: str) -> Category:
+        category_id = self._next_id
+        self._next_id += 1
+        category = Category(
+            id=category_id,
+            owner_id=owner_id,
+            name=name,
+            kind=kind,
+            is_active=True,
+        )
+        self._by_id[category_id] = category
+        return category
+
+    def find_by_id(self, category_id: int) -> Optional[Category]:
+        return self._by_id.get(category_id)
+
+    def list_by_owner(self, owner_id: int) -> list[Category]:
+        return [c for c in self._by_id.values() if c.owner_id == owner_id]
+
+    def update(
+        self,
+        category_id: int,
+        name: Optional[str] = None,
+        kind: Optional[str] = None,
+    ) -> Category:
+        current = self._by_id[category_id]
+        updated = replace(
+            current,
+            name=name if name is not None else current.name,
+            kind=kind if kind is not None else current.kind,
+        )
+        self._by_id[category_id] = updated
+        return updated
+
+    def deactivate(self, category_id: int) -> Category:
+        current = self._by_id[category_id]
+        updated = replace(current, is_active=False)
+        self._by_id[category_id] = updated
+        return updated
+
+    def activate(self, category_id: int) -> Category:
+        current = self._by_id[category_id]
+        updated = replace(current, is_active=True)
+        self._by_id[category_id] = updated
+        return updated
+
+    def exists_active_name_for_owner(self, owner_id: int, name: str) -> bool:
+        return any(
+            c.owner_id == owner_id and c.name == name and c.is_active
+            for c in self._by_id.values()
+        )
+
+    def seed(
+        self,
+        owner_id: int,
+        name: str,
+        kind: str = "expense",
+        is_active: bool = True,
+    ) -> Category:
+        category_id = self._next_id
+        self._next_id += 1
+        category = Category(
+            id=category_id,
+            owner_id=owner_id,
+            name=name,
+            kind=kind,
+            is_active=is_active,
+        )
+        self._by_id[category_id] = category
+        return category

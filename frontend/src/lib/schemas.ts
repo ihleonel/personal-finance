@@ -119,3 +119,26 @@ export type Account = {
   initial_balance: string
   is_active: boolean
 }
+
+export const CATEGORY_KINDS = [
+  { value: "income", label: "Ingreso" },
+  { value: "expense", label: "Egreso" },
+] as const
+
+export const categorySchema = z.object({
+  name: z
+    .string()
+    .min(1, "El nombre de la categoría es obligatorio")
+    .max(100, "Asegúrate de que el nombre no tenga más de 100 caracteres."),
+  kind: z.enum(["income", "expense"]),
+})
+
+export type CategoryInput = z.infer<typeof categorySchema>
+
+export type Category = {
+  id: number
+  owner_id: number
+  name: string
+  kind: string
+  is_active: boolean
+}

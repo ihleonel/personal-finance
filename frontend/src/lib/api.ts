@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AuthSession, AuthTokens, ProfileInput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, ProfileInput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -167,4 +167,27 @@ export async function deactivateAccount(id: number): Promise<Account> {
 
 export async function activateAccount(id: number): Promise<Account> {
   return api.post<Account>(`/accounts/${id}/activate/`, {})
+}
+
+export async function fetchCategories(): Promise<Category[]> {
+  return api.get<Category[]>("/categories/")
+}
+
+export async function createCategory(input: CategoryInput): Promise<Category> {
+  return api.post<Category>("/categories/", input)
+}
+
+export async function updateCategory(
+  id: number,
+  input: Partial<CategoryInput>,
+): Promise<Category> {
+  return api.patch<Category>(`/categories/${id}/`, input)
+}
+
+export async function deactivateCategory(id: number): Promise<Category> {
+  return api.post<Category>(`/categories/${id}/deactivate/`, {})
+}
+
+export async function activateCategory(id: number): Promise<Category> {
+  return api.post<Category>(`/categories/${id}/activate/`, {})
 }
