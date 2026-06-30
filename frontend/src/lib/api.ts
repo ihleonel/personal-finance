@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, ProfileInput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, ImportTransactionResult, ProfileInput, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -51,9 +51,10 @@ async function refreshTokens(): Promise<AuthTokens | null> {
 }
 
 async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
+  const isFormData = opts.body instanceof FormData
   const headers: Record<string, string> = {
     Accept: "application/json",
-    ...(opts.body !== undefined ? { "Content-Type": "application/json" } : {}),
+    ...(opts.body !== undefined && !isFormData ? { "Content-Type": "application/json" } : {}),
     ...opts.headers,
   }
 
@@ -67,7 +68,7 @@ async function request<T>(path: string, opts: RequestOptions = {}): Promise<T> {
     headers,
   }
   if (opts.body !== undefined) {
-    init.body = JSON.stringify(opts.body)
+    init.body = isFormData ? (opts.body as FormData) : JSON.stringify(opts.body)
   }
 
   const res = await fetch(`/api${path}`, init)
@@ -190,4 +191,57 @@ export async function deactivateCategory(id: number): Promise<Category> {
 
 export async function activateCategory(id: number): Promise<Category> {
   return api.post<Category>(`/categories/${id}/activate/`, {})
+}
+
+function buildQueryString(filters: TransactionFilters): string {
+  const params = new URLSearchParams()
+  if (filters.account_id != null) params.set("account_id", String(filters.account_id))
+  if (filters.kind) params.set("kind", filters.kind)
+  if (filters.category_id != null) params.set("category_id", String(filters.category_id))
+  if (filters.date_from) params.set("date_from", filters.date_from)
+  if (filters.date_to) params.set("date_to", filters.date_to)
+  const qs = params.toString()
+  return qs ? `?${qs}` : ""
+}
+
+export async function fetchTransactions(
+  filters?: TransactionFilters,
+): Promise<Transaction[]> {
+  return api.get<Transaction[]>(`/transactions/${buildQueryString(filters ?? {})}`)
+}
+
+export async function createTransaction(
+  input: TransactionInput,
+): Promise<Transaction> {
+  return api.post<Transaction>("/transactions/", input)
+}
+
+export async function updateTransaction(
+  id: number,
+  input: TransactionUpdateInput,
+): Promise<Transaction> {
+  return api.patch<Transaction>(`/transactions/${id}/`, input)
+}
+
+export async function deleteTransaction(id: number): Promise<void> {
+  await api.del<void>(`/transactions/${id}/`)
+}
+
+export async function createTransfer(
+  input: TransferInput,
+): Promise<TransferOutput> {
+  return api.post<TransferOutput>("/transactions/transfer/", input)
+}
+
+export async function importTransactions(
+  file: File,
+  accountId: number,
+): Promise<ImportTransactionResult> {
+  const form = new FormData()
+  form.append("file", file)
+  form.append("account_id", String(accountId))
+  return request<ImportTransactionResult>("/transactions/import/", {
+    method: "POST",
+    body: form,
+  })
 }

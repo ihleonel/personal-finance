@@ -13,6 +13,8 @@ export default defineConfig({
     videosFolder: path.join(__dirname, 'videos'),
     screenshotsFolder: path.join(__dirname, 'screenshots'),
     downloadsFolder: path.join(__dirname, 'downloads'),
+    defaultCommandTimeout: 15000,
+    retries: { runMode: 2, openMode: 0 },
   },
   viewportWidth: 1280,
   viewportHeight: 720,

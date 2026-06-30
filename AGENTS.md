@@ -30,12 +30,12 @@ docker compose exec backend python manage.py test tests.auths.application.use_ca
 docker compose exec backend python manage.py test tests.auths.application.use_cases.test_login_user.TestLoginUserUseCase.test_returns_tokens_for_valid_credentials
 ```
 
-Frontend (lint/build; no hay test unitarios de frontend):
+Frontend (lint/typecheck; no hay test unitarios de frontend):
 
 ```bash
 docker compose exec frontend npm run lint          # eslint
 docker compose exec frontend npm run lint:fix
-docker compose exec frontend npm run build         # tsc -b && vite build (typecheck incluido)
+docker compose exec frontend npx tsc --noEmit      # typecheck sin generar dist
 ```
 
 Cypress (requiere backend y frontend levantados en los puertos del `.env`):
@@ -58,5 +58,5 @@ cd cypress && npx cypress run --spec e2e/auth.cy.ts   # un solo spec
 ## Antes de entregar
 
 - Backend: `docker compose exec backend python manage.py test`
-- Frontend: `docker compose exec frontend npm run lint && docker compose exec frontend npm run build`
+- Frontend: `docker compose exec frontend npm run lint && docker compose exec frontend npx tsc --noEmit`
 - E2E (si tocás flujos de UI): `cd cypress && npm run test:e2e`

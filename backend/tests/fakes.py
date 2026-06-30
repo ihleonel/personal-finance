@@ -6,11 +6,12 @@ the application layer can be tested in isolation.
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field, replace
-from typing import Optional
-
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
+from uuid import UUID
 
 from modules.accounts.domain.entities import Account
 from modules.accounts.domain.repositories import AccountRepository
@@ -18,6 +19,8 @@ from modules.auths.application.ports import TokenService
 from modules.auths.domain.entities import User
 from modules.categories.domain.entities import Category
 from modules.categories.domain.repositories import CategoryRepository
+from modules.transactions.domain.entities import Transaction
+from modules.transactions.domain.repositories import TransactionRepository
 
 
 @dataclass
@@ -286,3 +289,188 @@ class InMemoryCategoryRepository:
         )
         self._by_id[category_id] = category
         return category
+
+
+@dataclass
+class InMemoryTransactionRepository:
+    """Implements modules.transactions.domain.repositories.TransactionRepository in memory."""
+
+    _by_id: dict[int, Transaction] = field(default_factory=dict)
+    _next_id: int = field(default=1)
+
+    def save(
+        self,
+        owner_id: int,
+        account_id: int,
+        category_id: Optional[int],
+        kind: str,
+        amount: Decimal,
+        date: date,
+        description: str,
+        transfer_group_id: Optional[UUID],
+        source: str = "",
+        external_reference: str = "",
+    ) -> Transaction:
+        transaction_id = self._next_id
+        self._next_id += 1
+        tx = Transaction(
+            id=transaction_id,
+            owner_id=owner_id,
+            account_id=account_id,
+            category_id=category_id,
+            kind=kind,
+            amount=amount.quantize(Decimal("0.01")),
+            date=date,
+            description=description,
+            transfer_group_id=transfer_group_id,
+            source=source,
+            external_reference=external_reference,
+        )
+        self._by_id[transaction_id] = tx
+        return tx
+
+    def find_existing(
+        self,
+        owner_id: int,
+        account_id: int,
+        source: str,
+        external_reference: str,
+        date: date,
+        amount: Decimal,
+        description: str,
+    ) -> Optional[Transaction]:
+        if not source or not external_reference:
+            return None
+        for tx in self._by_id.values():
+            if (
+                tx.owner_id == owner_id
+                and tx.account_id == account_id
+                and tx.source == source
+                and tx.external_reference == external_reference
+                and tx.date == date
+                and tx.amount == amount.quantize(Decimal("0.01"))
+                and tx.description == description
+            ):
+                return tx
+        return None
+
+    def find_by_id(self, transaction_id: int) -> Optional[Transaction]:
+        return self._by_id.get(transaction_id)
+
+    def list_by_owner(
+        self,
+        owner_id: int,
+        account_id: Optional[int] = None,
+        kind: Optional[str] = None,
+        category_id: Optional[int] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ) -> list[Transaction]:
+        result = list(self._by_id.values())
+        result = [t for t in result if t.owner_id == owner_id]
+        if account_id is not None:
+            result = [t for t in result if t.account_id == account_id]
+        if kind is not None:
+            result = [t for t in result if t.kind == kind]
+        if category_id is not None:
+            result = [t for t in result if t.category_id == category_id]
+        if date_from is not None:
+            result = [t for t in result if t.date >= date_from]
+        if date_to is not None:
+            result = [t for t in result if t.date <= date_to]
+        result.sort(key=lambda t: (t.date, t.created_at), reverse=True)
+        return result
+
+    def update(
+        self,
+        transaction_id: int,
+        amount: Optional[Decimal] = None,
+        date: Optional[date] = None,
+        description: Optional[str] = None,
+        category_id: Optional[int] = None,
+    ) -> Transaction:
+        current = self._by_id[transaction_id]
+        updated = replace(
+            current,
+            amount=amount.quantize(Decimal("0.01")) if amount is not None else current.amount,
+            date=date if date is not None else current.date,
+            description=description if description is not None else current.description,
+            category_id=category_id if category_id is not None else current.category_id,
+        )
+        self._by_id[transaction_id] = updated
+        return updated
+
+    def delete(self, transaction_id: int) -> None:
+        self._by_id.pop(transaction_id, None)
+
+    def delete_transfer_group(self, transfer_group_id: UUID) -> None:
+        to_remove = [
+            tid for tid, t in self._by_id.items()
+            if t.transfer_group_id == transfer_group_id
+        ]
+        for tid in to_remove:
+            self._by_id.pop(tid, None)
+
+    def create_transfer(
+        self,
+        owner_id: int,
+        source_account_id: int,
+        destination_account_id: int,
+        amount: Decimal,
+        date: date,
+        description: str,
+        category_id: Optional[int],
+    ) -> tuple[Transaction, Transaction]:
+        group_id = uuid.uuid4()
+        source_tx = self.save(
+            owner_id=owner_id,
+            account_id=source_account_id,
+            category_id=category_id,
+            kind="expense",
+            amount=amount,
+            date=date,
+            description=description,
+            transfer_group_id=group_id,
+        )
+        destination_tx = self.save(
+            owner_id=owner_id,
+            account_id=destination_account_id,
+            category_id=category_id,
+            kind="income",
+            amount=amount,
+            date=date,
+            description=description,
+            transfer_group_id=group_id,
+        )
+        return source_tx, destination_tx
+
+    def seed(
+        self,
+        owner_id: int,
+        account_id: int,
+        kind: str,
+        amount: Decimal,
+        date: date,
+        category_id: Optional[int] = None,
+        description: str = "",
+        transfer_group_id: Optional[UUID] = None,
+        source: str = "",
+        external_reference: str = "",
+    ) -> Transaction:
+        transaction_id = self._next_id
+        self._next_id += 1
+        tx = Transaction(
+            id=transaction_id,
+            owner_id=owner_id,
+            account_id=account_id,
+            category_id=category_id,
+            kind=kind,
+            amount=amount.quantize(Decimal("0.01")),
+            date=date,
+            description=description,
+            transfer_group_id=transfer_group_id,
+            source=source,
+            external_reference=external_reference,
+        )
+        self._by_id[transaction_id] = tx
+        return tx

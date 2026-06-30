@@ -1,5 +1,5 @@
 import { NavLink, Outlet } from "react-router-dom"
-import { LayoutDashboard, Wallet, Tags } from "lucide-react"
+import { LayoutDashboard, Wallet, Tags, ArrowRightLeft } from "lucide-react"
 import { UserMenu } from "@/components/UserMenu"
 import { cn } from "@/lib/utils"
 
@@ -7,6 +7,7 @@ const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
   { to: "/accounts", label: "Cuentas", icon: Wallet, end: false },
   { to: "/categories", label: "Categorías", icon: Tags, end: false },
+  { to: "/transactions", label: "Transacciones", icon: ArrowRightLeft, end: false },
 ]
 
 export function AppLayout() {

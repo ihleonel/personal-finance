@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'modules.auths',
     'modules.accounts',
     'modules.categories',
+    'modules.transactions',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
 ]   

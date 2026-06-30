@@ -1,0 +1,82 @@
+from __future__ import annotations
+
+from abc import ABC, abstractmethod
+from datetime import date
+from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+
+from .entities import Transaction
+
+
+class TransactionRepository(ABC):
+    """Domain port for transaction persistence. Implemented by infrastructure."""
+
+    @abstractmethod
+    def save(
+        self,
+        owner_id: int,
+        account_id: int,
+        category_id: Optional[int],
+        kind: str,
+        amount: Decimal,
+        date: date,
+        description: str,
+        transfer_group_id: Optional[UUID],
+        source: str = "",
+        external_reference: str = "",
+    ) -> Transaction: ...
+
+    @abstractmethod
+    def find_existing(
+        self,
+        owner_id: int,
+        account_id: int,
+        source: str,
+        external_reference: str,
+        date: date,
+        amount: Decimal,
+        description: str,
+    ) -> Optional[Transaction]: ...
+
+    @abstractmethod
+    def find_by_id(self, transaction_id: int) -> Optional[Transaction]: ...
+
+    @abstractmethod
+    def list_by_owner(
+        self,
+        owner_id: int,
+        account_id: Optional[int] = None,
+        kind: Optional[str] = None,
+        category_id: Optional[int] = None,
+        date_from: Optional[date] = None,
+        date_to: Optional[date] = None,
+    ) -> list[Transaction]: ...
+
+    @abstractmethod
+    def update(
+        self,
+        transaction_id: int,
+        amount: Optional[Decimal] = None,
+        date: Optional[date] = None,
+        description: Optional[str] = None,
+        category_id: Optional[int] = None,
+    ) -> Transaction: ...
+
+    @abstractmethod
+    def delete(self, transaction_id: int) -> None: ...
+
+    @abstractmethod
+    def delete_transfer_group(self, transfer_group_id: UUID) -> None: ...
+
+    @abstractmethod
+    def create_transfer(
+        self,
+        owner_id: int,
+        source_account_id: int,
+        destination_account_id: int,
+        amount: Decimal,
+        date: date,
+        description: str,
+        category_id: Optional[int],
+    ) -> tuple[Transaction, Transaction]: ...
