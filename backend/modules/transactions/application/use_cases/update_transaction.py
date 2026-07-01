@@ -9,6 +9,7 @@ from django.utils.translation import gettext_lazy as _
 
 from modules.categories.domain.repositories import CategoryRepository
 from modules.shared.application.result import Result
+from modules.shared.domain.optional import UNSET
 from modules.transactions.application.dtos import (
     TransactionOutput,
     UpdateTransactionInput,
@@ -61,8 +62,8 @@ class UpdateTransactionUseCase:
 
         has_any_field = any(
             getattr(data, f) is not None
-            for f in ("amount", "date", "description", "category_id")
-        )
+            for f in ("amount", "date", "description")
+        ) or data.is_category_id_set
         if not has_any_field:
             result.add_error(
                 "non_field_errors",
@@ -115,18 +116,19 @@ class UpdateTransactionUseCase:
             else:
                 new_description = data.description
 
-        if data.category_id is not None:
+        if data.is_category_id_set:
             category_provided = True
             new_category_id = data.category_id
-            category = None
-            if self.category_repository is not None:
-                category = self.category_repository.find_by_id(data.category_id)
-            if category is None or category.owner_id != owner_id:
-                result.add_error(
-                    "category",
-                    "transactions.category.not_found",
-                    str(_("La categoría no existe o no te pertenece.")),
-                )
+            if data.category_id is not None:
+                category = None
+                if self.category_repository is not None:
+                    category = self.category_repository.find_by_id(data.category_id)
+                if category is None or category.owner_id != owner_id:
+                    result.add_error(
+                        "category",
+                        "transactions.category.not_found",
+                        str(_("La categoría no existe o no te pertenece.")),
+                    )
 
         if result.has_errors:
             return result
@@ -136,7 +138,7 @@ class UpdateTransactionUseCase:
             amount=new_amount,
             date=new_date,
             description=new_description,
-            category_id=new_category_id if category_provided else None,
+            category_id=new_category_id if category_provided else UNSET,
         )
 
         return Result.ok(self._to_output(updated))

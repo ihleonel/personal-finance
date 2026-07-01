@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, ImportTransactionResult, PaginatedResponse, ProfileInput, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, ImportTransactionResult, PaginatedResponse, ProfileInput, SuggestCategoryResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -193,10 +193,52 @@ export async function activateCategory(id: number): Promise<Category> {
   return api.post<Category>(`/categories/${id}/activate/`, {})
 }
 
+export async function fetchCategorizationRules(): Promise<CategorizationRule[]> {
+  return api.get<CategorizationRule[]>("/categorization-rules/")
+}
+
+export async function createCategorizationRule(
+  input: CategorizationRuleInput,
+): Promise<CategorizationRule> {
+  return api.post<CategorizationRule>("/categorization-rules/", input)
+}
+
+export async function updateCategorizationRule(
+  id: number,
+  input: CategorizationRuleUpdateInput,
+): Promise<CategorizationRule> {
+  return api.patch<CategorizationRule>(`/categorization-rules/${id}/`, input)
+}
+
+export async function deleteCategorizationRule(id: number): Promise<void> {
+  await api.del<void>(`/categorization-rules/${id}/`)
+}
+
+export async function deactivateCategorizationRule(
+  id: number,
+): Promise<CategorizationRule> {
+  return api.post<CategorizationRule>(`/categorization-rules/${id}/deactivate/`, {})
+}
+
+export async function activateCategorizationRule(
+  id: number,
+): Promise<CategorizationRule> {
+  return api.post<CategorizationRule>(`/categorization-rules/${id}/activate/`, {})
+}
+
+export async function suggestCategory(
+  description: string,
+): Promise<SuggestCategoryResult> {
+  return api.post<SuggestCategoryResult>("/categorization-rules/suggest-category/", {
+    description,
+  })
+}
+
 function buildQueryString(filters: TransactionFilters, page?: number): string {
   const params = new URLSearchParams()
   if (filters.account_id != null) params.set("account_id", String(filters.account_id))
   if (filters.kind) params.set("kind", filters.kind)
+  if (filters.category_id_isnull) params.set("category_id_isnull", "true")
   if (filters.category_id != null) params.set("category_id", String(filters.category_id))
   if (filters.date_from) params.set("date_from", filters.date_from)
   if (filters.date_to) params.set("date_to", filters.date_to)

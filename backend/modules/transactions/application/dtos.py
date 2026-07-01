@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Any, Optional
+
+from modules.shared.domain.optional import UNSET
 
 
 @dataclass(frozen=True)
@@ -31,7 +33,11 @@ class UpdateTransactionInput:
     amount: Optional[str] = None
     date: Optional[str] = None
     description: Optional[str] = None
-    category_id: Optional[int] = None
+    category_id: Any = field(default=UNSET)
+
+    @property
+    def is_category_id_set(self) -> bool:
+        return self.category_id is not UNSET
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,7 @@ class ListTransactionsFilters:
     account_id: Optional[int] = None
     kind: Optional[str] = None
     category_id: Optional[int] = None
+    category_id_isnull: bool = False
     date_from: Optional[str] = None
     date_to: Optional[str] = None
 
@@ -55,6 +62,7 @@ class TransactionOutput:
     description: str
     transfer_group_id: Optional[str]
     created_at: str
+    suggested_category_id: Optional[int] = None
 
 
 @dataclass(frozen=True)

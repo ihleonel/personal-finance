@@ -113,6 +113,27 @@ class TestListTransactionsUseCase(unittest.TestCase):
         self.assertEqual(len(result.value), 1)
         self.assertEqual(result.value[0].category_id, 5)
 
+    def test_filters_transactions_without_category(self) -> None:
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("100"), date=date(2026, 1, 1), category_id=5,
+        )
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("200"), date=date(2026, 1, 2),
+        )
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("300"), date=date(2026, 1, 3),
+        )
+        result = self.use_case.execute(
+            owner_id=1, filters=ListTransactionsFilters(category_id_isnull=True)
+        )
+        self.assertTrue(result.is_success)
+        self.assertEqual(len(result.value), 2)
+        for tx in result.value:
+            self.assertIsNone(tx.category_id)
+
     def test_orders_by_date_desc(self) -> None:
         self.repo.seed(
             owner_id=1, account_id=10, kind="income",

@@ -7,6 +7,7 @@ from uuid import UUID
 
 from django.db import transaction as db_transaction
 
+from modules.shared.domain.optional import UNSET
 from modules.transactions.domain.entities import Transaction
 from modules.transactions.domain.repositories import TransactionRepository
 from modules.transactions.models import Transaction as TransactionORM
@@ -81,6 +82,7 @@ class DjangoTransactionRepository(TransactionRepository):
         account_id: Optional[int] = None,
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
+        category_id_isnull: bool = False,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
     ) -> list[Transaction]:
@@ -89,7 +91,9 @@ class DjangoTransactionRepository(TransactionRepository):
             qs = qs.filter(account_id=account_id)
         if kind is not None:
             qs = qs.filter(kind=kind)
-        if category_id is not None:
+        if category_id_isnull:
+            qs = qs.filter(category_id__isnull=True)
+        elif category_id is not None:
             qs = qs.filter(category_id=category_id)
         if date_from is not None:
             qs = qs.filter(date__gte=date_from)
@@ -104,7 +108,7 @@ class DjangoTransactionRepository(TransactionRepository):
         amount: Optional[Decimal] = None,
         date: Optional[date] = None,
         description: Optional[str] = None,
-        category_id: Optional[int] = None,
+        category_id: object = UNSET,
     ) -> Transaction:
         fields: dict[str, object] = {}
         if amount is not None:
@@ -113,7 +117,7 @@ class DjangoTransactionRepository(TransactionRepository):
             fields["date"] = date
         if description is not None:
             fields["description"] = description
-        if category_id is not None:
+        if category_id is not UNSET:
             fields["category_id"] = category_id
 
         if fields:

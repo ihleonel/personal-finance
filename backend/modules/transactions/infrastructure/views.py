@@ -11,6 +11,12 @@ from rest_framework.views import APIView
 
 from modules.accounts.infrastructure.repositories import DjangoAccountRepository
 from modules.categories.infrastructure.repositories import DjangoCategoryRepository
+from modules.categorization_rules.application.categorizer import (
+    CategorySuggestionService,
+)
+from modules.categorization_rules.infrastructure.repositories import (
+    DjangoCategorizationRuleRepository,
+)
 from modules.shared.application.result import ValidationError
 from modules.transactions.application.dtos import (
     CreateTransactionInput,
@@ -60,6 +66,14 @@ def _account_repository() -> DjangoAccountRepository:
 
 def _category_repository() -> DjangoCategoryRepository:
     return DjangoCategoryRepository()
+
+
+def _rule_repository() -> DjangoCategorizationRuleRepository:
+    return DjangoCategorizationRuleRepository()
+
+
+def _suggestion_service() -> CategorySuggestionService:
+    return CategorySuggestionService()
 
 
 def _errors_to_drf(errors: list[ValidationError]) -> dict:
@@ -242,6 +256,8 @@ class TransactionImportView(APIView):
         use_case = ImportTransactionsUseCase(
             repository=_repository(),
             account_repository=_account_repository(),
+            rule_repository=_rule_repository(),
+            suggestion_service=_suggestion_service(),
         )
         result = use_case.execute(
             owner_id=request.user.id,

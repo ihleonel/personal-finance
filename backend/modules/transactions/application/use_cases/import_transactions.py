@@ -8,6 +8,12 @@ from typing import Optional
 from django.utils.translation import gettext_lazy as _
 
 from modules.accounts.domain.repositories import AccountRepository
+from modules.categorization_rules.application.categorizer import (
+    CategorySuggestionService,
+)
+from modules.categorization_rules.domain.repositories import (
+    CategorizationRuleRepository,
+)
 from modules.shared.application.result import Result
 from modules.transactions.application.dtos import (
     ImportSkippedRow,
@@ -35,6 +41,8 @@ _MAX_DESCRIPTION_LENGTH = 255
 class ImportTransactionsUseCase:
     repository: TransactionRepository
     account_repository: AccountRepository
+    rule_repository: Optional[CategorizationRuleRepository] = None
+    suggestion_service: Optional[CategorySuggestionService] = None
 
     def execute(
         self,
@@ -64,6 +72,12 @@ class ImportTransactionsUseCase:
                 str(_("El formato del archivo no está soportado.")),
             )
             return result
+
+        active_rules = (
+            self.rule_repository.list_active_by_owner(owner_id)
+            if self.rule_repository is not None
+            else []
+        )
 
         created: list[TransactionOutput] = []
         skipped: list[ImportSkippedRow] = []
@@ -106,7 +120,9 @@ class ImportTransactionsUseCase:
                 source=parsed.source,
                 external_reference=row.external_reference,
             )
-            created.append(self._to_output(saved))
+
+            suggested_category_id = self._suggest(owner_id, row.description, active_rules)
+            created.append(self._to_output(saved, suggested_category_id))
 
         total = len(parsed.rows)
         summary = ImportSummary(
@@ -123,6 +139,16 @@ class ImportTransactionsUseCase:
                 summary=summary,
             )
         )
+
+    def _suggest(
+        self,
+        owner_id: int,
+        description: str,
+        active_rules: list,
+    ) -> Optional[int]:
+        if self.suggestion_service is None or not active_rules:
+            return None
+        return self.suggestion_service.suggest(description, active_rules)
 
     @staticmethod
     def _parse_row(row) -> tuple[Optional[str], Optional[Decimal], Optional[date], Optional]:
@@ -173,7 +199,7 @@ class ImportTransactionsUseCase:
         return kind_vo.value, amount.value, parsed_date.value, None
 
     @staticmethod
-    def _to_output(tx) -> TransactionOutput:
+    def _to_output(tx, suggested_category_id: Optional[int] = None) -> TransactionOutput:
         return TransactionOutput(
             id=tx.id or 0,
             owner_id=tx.owner_id,
@@ -185,4 +211,5 @@ class ImportTransactionsUseCase:
             description=tx.description,
             transfer_group_id=str(tx.transfer_group_id) if tx.transfer_group_id is not None else None,
             created_at=tx.created_at.isoformat() if hasattr(tx.created_at, "isoformat") else str(tx.created_at),
+            suggested_category_id=suggested_category_id,
         )

@@ -82,6 +82,34 @@ class TestUpdateTransactionUseCase(unittest.TestCase):
         self.assertTrue(result.is_success)
         self.assertEqual(result.value.category_id, category.id)
 
+    def test_clears_category_when_category_id_is_none(self) -> None:
+        category = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
+        tx = self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("100"), date=date(2026, 1, 1),
+            category_id=category.id,
+        )
+        result = self.use_case.execute(
+            owner_id=1, transaction_id=tx.id,
+            data=UpdateTransactionInput(category_id=None),
+        )
+        self.assertTrue(result.is_success)
+        self.assertIsNone(result.value.category_id)
+
+    def test_does_not_change_category_when_field_not_sent(self) -> None:
+        category = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
+        tx = self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("100"), date=date(2026, 1, 1),
+            category_id=category.id,
+        )
+        result = self.use_case.execute(
+            owner_id=1, transaction_id=tx.id,
+            data=UpdateTransactionInput(amount="200.00"),
+        )
+        self.assertTrue(result.is_success)
+        self.assertEqual(result.value.category_id, category.id)
+
     def test_fails_when_transaction_not_found(self) -> None:
         result = self.use_case.execute(
             owner_id=1, transaction_id=9999,

@@ -31,6 +31,7 @@ class ListTransactionsUseCase:
             account_id=filters.account_id,
             kind=filters.kind,
             category_id=filters.category_id,
+            category_id_isnull=filters.category_id_isnull,
             date_from=date_from,
             date_to=date_to,
         )

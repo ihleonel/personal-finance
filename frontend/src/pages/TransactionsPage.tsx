@@ -30,6 +30,7 @@ import {
 import { TransactionFormDialog } from "@/components/transactions/TransactionFormDialog"
 import { TransferFormDialog } from "@/components/transactions/TransferFormDialog"
 import { ImportTransactionsDialog } from "@/components/transactions/ImportTransactionsDialog"
+import { CategoryCell } from "@/components/transactions/CategoryCell"
 import {
   TRANSACTION_KINDS,
   type Account,
@@ -222,8 +223,6 @@ export function TransactionsPage() {
 
   const accountName = (id: number) =>
     accounts.find((a) => a.id === id)?.name ?? "—"
-  const categoryName = (id: number | null) =>
-    id == null ? "—" : categories.find((c) => c.id === id)?.name ?? "—"
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
 
   return (
@@ -311,16 +310,44 @@ export function TransactionsPage() {
             <div className="space-y-1.5">
               <label className="block text-sm font-medium">Categoría</label>
               <Select
-                value={filters.category_id != null ? String(filters.category_id) : "all"}
-                onValueChange={(v) =>
-                  updateFilter("category_id", v === "all" ? undefined : Number(v))
+                value={
+                  filters.category_id_isnull
+                    ? "none"
+                    : filters.category_id != null
+                      ? String(filters.category_id)
+                      : "all"
                 }
+                onValueChange={(v) => {
+                  setLoading(true)
+                  setPage(1)
+                  if (v === "all") {
+                    setFilters((prev) => {
+                      const next = { ...prev }
+                      delete next.category_id
+                      delete next.category_id_isnull
+                      return next
+                    })
+                  } else if (v === "none") {
+                    setFilters((prev) => {
+                      const next = { ...prev }
+                      delete next.category_id
+                      return { ...next, category_id_isnull: true }
+                    })
+                  } else {
+                    setFilters((prev) => {
+                      const next = { ...prev }
+                      delete next.category_id_isnull
+                      return { ...next, category_id: Number(v) }
+                    })
+                  }
+                }}
               >
                 <SelectTrigger className="w-[160px]" data-testid="filter-category-select">
                   <SelectValue placeholder="Todas" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
+                  <SelectItem value="none">Sin categoría</SelectItem>
                   {categories.map((c) => (
                     <SelectItem key={c.id} value={String(c.id)}>
                       {c.name}
@@ -421,7 +448,13 @@ export function TransactionsPage() {
                         {tx.description || "—"}
                       </TableCell>
                       <TableCell>{accountName(tx.account_id)}</TableCell>
-                      <TableCell>{categoryName(tx.category_id)}</TableCell>
+                      <TableCell>
+                        <CategoryCell
+                          tx={tx}
+                          categories={categories}
+                          onAssigned={handleTxSaved}
+                        />
+                      </TableCell>
                       <TableCell>
                         {isTransfer ? (
                           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">

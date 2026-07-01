@@ -6,6 +6,8 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
+from modules.shared.domain.optional import UNSET
+
 from .entities import Transaction
 
 
@@ -49,6 +51,7 @@ class TransactionRepository(ABC):
         account_id: Optional[int] = None,
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
+        category_id_isnull: bool = False,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
     ) -> list[Transaction]: ...
@@ -60,7 +63,7 @@ class TransactionRepository(ABC):
         amount: Optional[Decimal] = None,
         date: Optional[date] = None,
         description: Optional[str] = None,
-        category_id: Optional[int] = None,
+        category_id: object = UNSET,
     ) -> Transaction: ...
 
     @abstractmethod

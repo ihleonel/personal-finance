@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { Loader2, Pencil, Plus, Power, Tags } from "lucide-react"
+import { Loader2, Pencil, Plus, Power, Tags, WandSparkles } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/table"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CategoryFormDialog } from "@/components/categories/CategoryFormDialog"
+import { CategoryRulesDialog } from "@/components/categories/CategoryRulesDialog"
 import {
   CATEGORY_KINDS,
   type Category,
@@ -34,6 +35,8 @@ export function CategoriesPage() {
   const [editing, setEditing] = useState<Category | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [confirmingAction, setConfirmingAction] = useState<"activate" | "deactivate" | null>(null)
+  const [rulesDialogOpen, setRulesDialogOpen] = useState(false)
+  const [rulesDialogCategory, setRulesDialogCategory] = useState<Category | null>(null)
 
   useEffect(() => {
     let active = true
@@ -66,6 +69,11 @@ export function CategoriesPage() {
   function handleEdit(category: Category) {
     setEditing(category)
     setDialogOpen(true)
+  }
+
+  function handleRules(category: Category) {
+    setRulesDialogCategory(category)
+    setRulesDialogOpen(true)
   }
 
   async function handleDeactivate(id: number) {
@@ -236,6 +244,14 @@ export function CategoriesPage() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleRules(category)}
+                              aria-label={`Reglas de ${category.name}`}
+                            >
+                              <WandSparkles />
+                            </Button>
                             {category.is_active ? (
                               <>
                                 <Button
@@ -282,6 +298,13 @@ export function CategoriesPage() {
         onOpenChange={setDialogOpen}
         category={editing}
         onSaved={handleSaved}
+      />
+
+      <CategoryRulesDialog
+        key={rulesDialogCategory?.id ?? "none"}
+        open={rulesDialogOpen}
+        onOpenChange={setRulesDialogOpen}
+        category={rulesDialogCategory}
       />
     </div>
   )

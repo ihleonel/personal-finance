@@ -143,6 +143,50 @@ export type Category = {
   is_active: boolean
 }
 
+export const RULE_MATCH_TYPES = [
+  { value: "contains", label: "Contiene" },
+  { value: "equals", label: "Es igual a" },
+] as const
+
+export const categorizationRuleSchema = z.object({
+  pattern: z
+    .string()
+    .min(1, "El patrón es obligatorio")
+    .max(120, "Asegúrate de que el patrón no tenga más de 120 caracteres."),
+  match_type: z.enum(["contains", "equals"]),
+  category_id: z.number().min(1, "La categoría es obligatoria."),
+  kind: z.enum(["income", "expense"]),
+  priority: z.number().int().min(0, "La prioridad debe ser un número no negativo."),
+})
+
+export type CategorizationRuleInput = z.infer<typeof categorizationRuleSchema>
+
+export type CategorizationRuleUpdateInput = Partial<CategorizationRuleInput>
+
+export const categoryRuleFormSchema = categorizationRuleSchema.pick({
+  pattern: true,
+  match_type: true,
+  priority: true,
+})
+
+export type CategoryRuleFormInput = z.infer<typeof categoryRuleFormSchema>
+
+export type CategorizationRule = {
+  id: number
+  owner_id: number
+  pattern: string
+  match_type: string
+  category_id: number
+  kind: string
+  priority: number
+  is_active: boolean
+}
+
+export type SuggestCategoryResult = {
+  category_id: number | null
+  category_name: string | null
+}
+
 export const TRANSACTION_KINDS = [
   { value: "income", label: "Ingreso" },
   { value: "expense", label: "Egreso" },
@@ -159,12 +203,14 @@ export type Transaction = {
   description: string
   transfer_group_id: string | null
   created_at: string
+  suggested_category_id?: number | null
 }
 
 export type TransactionFilters = {
   account_id?: number
   kind?: string
   category_id?: number
+  category_id_isnull?: boolean
   date_from?: string
   date_to?: string
 }

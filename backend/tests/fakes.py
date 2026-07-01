@@ -19,6 +19,12 @@ from modules.auths.application.ports import TokenService
 from modules.auths.domain.entities import User
 from modules.categories.domain.entities import Category
 from modules.categories.domain.repositories import CategoryRepository
+from modules.categorization_rules.application.ports import CategoryNameResolver
+from modules.categorization_rules.domain.entities import CategorizationRule
+from modules.categorization_rules.domain.repositories import (
+    CategorizationRuleRepository,
+)
+from modules.shared.domain.optional import UNSET
 from modules.transactions.domain.entities import Transaction
 from modules.transactions.domain.repositories import TransactionRepository
 
@@ -363,6 +369,7 @@ class InMemoryTransactionRepository:
         account_id: Optional[int] = None,
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
+        category_id_isnull: bool = False,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
     ) -> list[Transaction]:
@@ -372,7 +379,9 @@ class InMemoryTransactionRepository:
             result = [t for t in result if t.account_id == account_id]
         if kind is not None:
             result = [t for t in result if t.kind == kind]
-        if category_id is not None:
+        if category_id_isnull:
+            result = [t for t in result if t.category_id is None]
+        elif category_id is not None:
             result = [t for t in result if t.category_id == category_id]
         if date_from is not None:
             result = [t for t in result if t.date >= date_from]
@@ -387,7 +396,7 @@ class InMemoryTransactionRepository:
         amount: Optional[Decimal] = None,
         date: Optional[date] = None,
         description: Optional[str] = None,
-        category_id: Optional[int] = None,
+        category_id: object = UNSET,
     ) -> Transaction:
         current = self._by_id[transaction_id]
         updated = replace(
@@ -395,7 +404,7 @@ class InMemoryTransactionRepository:
             amount=amount.quantize(Decimal("0.01")) if amount is not None else current.amount,
             date=date if date is not None else current.date,
             description=description if description is not None else current.description,
-            category_id=category_id if category_id is not None else current.category_id,
+            category_id=category_id if category_id is not UNSET else current.category_id,
         )
         self._by_id[transaction_id] = updated
         return updated
@@ -474,3 +483,146 @@ class InMemoryTransactionRepository:
         )
         self._by_id[transaction_id] = tx
         return tx
+
+
+@dataclass
+class InMemoryCategorizationRuleRepository:
+    """Implements modules.categorization_rules.domain.repositories.CategorizationRuleRepository in memory."""
+
+    _by_id: dict[int, CategorizationRule] = field(default_factory=dict)
+    _next_id: int = field(default=1)
+
+    def save(
+        self,
+        owner_id: int,
+        pattern: str,
+        match_type: str,
+        category_id: int,
+        kind: str,
+        priority: int,
+    ) -> CategorizationRule:
+        rule_id = self._next_id
+        self._next_id += 1
+        rule = CategorizationRule(
+            id=rule_id,
+            owner_id=owner_id,
+            pattern=pattern,
+            match_type=match_type,
+            category_id=category_id,
+            kind=kind,
+            priority=priority,
+            is_active=True,
+        )
+        self._by_id[rule_id] = rule
+        return rule
+
+    def find_by_id(self, rule_id: int) -> Optional[CategorizationRule]:
+        return self._by_id.get(rule_id)
+
+    def list_by_owner(self, owner_id: int) -> list[CategorizationRule]:
+        rules = [r for r in self._by_id.values() if r.owner_id == owner_id]
+        rules.sort(key=lambda r: (r.priority, r.created_at), reverse=True)
+        return rules
+
+    def list_active_by_owner(self, owner_id: int) -> list[CategorizationRule]:
+        rules = [
+            r for r in self._by_id.values()
+            if r.owner_id == owner_id and r.is_active
+        ]
+        rules.sort(key=lambda r: (r.priority, r.created_at), reverse=True)
+        return rules
+
+    def update(
+        self,
+        rule_id: int,
+        pattern: Optional[str] = None,
+        match_type: Optional[str] = None,
+        category_id: Optional[int] = None,
+        kind: Optional[str] = None,
+        priority: Optional[int] = None,
+    ) -> CategorizationRule:
+        current = self._by_id[rule_id]
+        updated = replace(
+            current,
+            pattern=pattern if pattern is not None else current.pattern,
+            match_type=match_type if match_type is not None else current.match_type,
+            category_id=category_id if category_id is not None else current.category_id,
+            kind=kind if kind is not None else current.kind,
+            priority=priority if priority is not None else current.priority,
+        )
+        self._by_id[rule_id] = updated
+        return updated
+
+    def deactivate(self, rule_id: int) -> CategorizationRule:
+        current = self._by_id[rule_id]
+        updated = replace(current, is_active=False)
+        self._by_id[rule_id] = updated
+        return updated
+
+    def activate(self, rule_id: int) -> CategorizationRule:
+        current = self._by_id[rule_id]
+        updated = replace(current, is_active=True)
+        self._by_id[rule_id] = updated
+        return updated
+
+    def delete(self, rule_id: int) -> None:
+        self._by_id.pop(rule_id, None)
+
+    def exists_active_duplicate_for_owner(
+        self,
+        owner_id: int,
+        pattern: str,
+        match_type: str,
+        exclude_id: Optional[int] = None,
+    ) -> bool:
+        return any(
+            r.owner_id == owner_id
+            and r.pattern == pattern
+            and r.match_type == match_type
+            and r.is_active
+            and r.id != exclude_id
+            for r in self._by_id.values()
+        )
+
+    def seed(
+        self,
+        owner_id: int,
+        pattern: str,
+        match_type: str,
+        category_id: int,
+        kind: str = "expense",
+        priority: int = 0,
+        is_active: bool = True,
+    ) -> CategorizationRule:
+        rule_id = self._next_id
+        self._next_id += 1
+        rule = CategorizationRule(
+            id=rule_id,
+            owner_id=owner_id,
+            pattern=pattern,
+            match_type=match_type,
+            category_id=category_id,
+            kind=kind,
+            priority=priority,
+            is_active=is_active,
+        )
+        self._by_id[rule_id] = rule
+        return rule
+
+
+@dataclass
+class FakeCategoryNameResolver:
+    """Implements modules.categorization_rules.application.ports.CategoryNameResolver.
+
+    Backed by an InMemoryCategoryRepository to resolve category names.
+    """
+
+    category_repository: InMemoryCategoryRepository
+
+    def find_name_by_id_and_owner(
+        self, owner_id: int, category_id: int
+    ) -> Optional[str]:
+        category = self.category_repository.find_by_id(category_id)
+        if category is None or category.owner_id != owner_id:
+            return None
+        return category.name

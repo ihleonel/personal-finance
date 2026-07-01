@@ -208,6 +208,10 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
         allow_null=True,
         error_messages={"invalid": "La categoría no es válida."},
     )
+    category_id_isnull = serializers.BooleanField(
+        required=False,
+        default=False,
+    )
     date_from = serializers.DateField(
         required=False,
         allow_null=True,
@@ -229,4 +233,6 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
                     out[key] = value.isoformat()
                 else:
                     out[key] = value
+        if data.get("category_id_isnull"):
+            out["category_id_isnull"] = True
         return out
