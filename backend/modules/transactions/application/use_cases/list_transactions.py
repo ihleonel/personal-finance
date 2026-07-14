@@ -32,8 +32,10 @@ class ListTransactionsUseCase:
             kind=filters.kind,
             category_id=filters.category_id,
             category_id_isnull=filters.category_id_isnull,
+            transfer_group_id_isnull=filters.transfer_group_id_isnull,
             date_from=date_from,
             date_to=date_to,
+            description=filters.description,
         )
         outputs = [self._to_output(t) for t in txs]
         return Result.ok(outputs)

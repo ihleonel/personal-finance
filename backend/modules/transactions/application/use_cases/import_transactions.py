@@ -20,6 +20,7 @@ from modules.transactions.application.dtos import (
     ImportSummary,
     ImportTransactionResult,
     TransactionOutput,
+    TransferPairRef,
 )
 from modules.transactions.application.ports import (
     ParsedImport,
@@ -32,6 +33,13 @@ from modules.transactions.domain.value_objects import (
     TransactionDate,
     TransactionKind,
 )
+from modules.transfer_detection.application.detector import (
+    TransferCandidateDetector,
+    TransferPairMatcher,
+)
+from modules.transfer_detection.domain.repositories import (
+    TransferDetectionRuleRepository,
+)
 
 
 _MAX_DESCRIPTION_LENGTH = 255
@@ -43,6 +51,9 @@ class ImportTransactionsUseCase:
     account_repository: AccountRepository
     rule_repository: Optional[CategorizationRuleRepository] = None
     suggestion_service: Optional[CategorySuggestionService] = None
+    transfer_rule_repository: Optional[TransferDetectionRuleRepository] = None
+    transfer_candidate_detector: Optional[TransferCandidateDetector] = None
+    transfer_pair_matcher: Optional[TransferPairMatcher] = None
 
     def execute(
         self,
@@ -76,6 +87,12 @@ class ImportTransactionsUseCase:
         active_rules = (
             self.rule_repository.list_active_by_owner(owner_id)
             if self.rule_repository is not None
+            else []
+        )
+
+        active_transfer_rules = (
+            self.transfer_rule_repository.list_active_by_owner(owner_id)
+            if self.transfer_rule_repository is not None
             else []
         )
 
@@ -122,7 +139,18 @@ class ImportTransactionsUseCase:
             )
 
             suggested_category_id = self._suggest(owner_id, row.description, active_rules)
-            created.append(self._to_output(saved, suggested_category_id))
+            suggested_is_transfer = self._suggest_transfer(
+                row.description, active_transfer_rules
+            )
+            created.append(
+                self._to_output(
+                    saved,
+                    suggested_category_id=suggested_category_id,
+                    suggested_is_transfer=suggested_is_transfer,
+                )
+            )
+
+        self._pair_transfer_suggestions(created)
 
         total = len(parsed.rows)
         summary = ImportSummary(
@@ -149,6 +177,53 @@ class ImportTransactionsUseCase:
         if self.suggestion_service is None or not active_rules:
             return None
         return self.suggestion_service.suggest(description, active_rules)
+
+    def _suggest_transfer(
+        self,
+        description: str,
+        active_transfer_rules: list,
+    ) -> bool:
+        if self.transfer_candidate_detector is None or not active_transfer_rules:
+            return False
+        return self.transfer_candidate_detector.is_transfer_candidate(
+            description, active_transfer_rules
+        )
+
+    def _pair_transfer_suggestions(self, created: list[TransactionOutput]) -> None:
+        if self.transfer_pair_matcher is None:
+            return
+        candidate_ids = {tx.id for tx in created if tx.suggested_is_transfer}
+        if not candidate_ids:
+            return
+        saved_txs = [
+            self.repository.find_by_id(tx.id) for tx in created if tx.id
+        ]
+        saved_txs = [t for t in saved_txs if t is not None]
+        suggestions = self.transfer_pair_matcher.match(
+            saved_txs,
+            require_both_candidates=True,
+            candidate_ids=candidate_ids,
+        )
+        by_id = {tx.id: tx for tx in created}
+        for s in suggestions:
+            source = by_id.get(s.source_id)
+            destination = by_id.get(s.destination_id)
+            if source is None or destination is None:
+                continue
+            by_id[s.source_id] = _replace_output(
+                source,
+                suggested_transfer_pair=TransferPairRef(
+                    source_id=s.source_id, destination_id=s.destination_id
+                ),
+            )
+            by_id[s.destination_id] = _replace_output(
+                destination,
+                suggested_transfer_pair=TransferPairRef(
+                    source_id=s.source_id, destination_id=s.destination_id
+                ),
+            )
+        for idx, tx in enumerate(created):
+            created[idx] = by_id[tx.id]
 
     @staticmethod
     def _parse_row(row) -> tuple[Optional[str], Optional[Decimal], Optional[date], Optional]:
@@ -199,7 +274,12 @@ class ImportTransactionsUseCase:
         return kind_vo.value, amount.value, parsed_date.value, None
 
     @staticmethod
-    def _to_output(tx, suggested_category_id: Optional[int] = None) -> TransactionOutput:
+    def _to_output(
+        tx,
+        suggested_category_id: Optional[int] = None,
+        suggested_is_transfer: bool = False,
+        suggested_transfer_pair: Optional[TransferPairRef] = None,
+    ) -> TransactionOutput:
         return TransactionOutput(
             id=tx.id or 0,
             owner_id=tx.owner_id,
@@ -212,4 +292,15 @@ class ImportTransactionsUseCase:
             transfer_group_id=str(tx.transfer_group_id) if tx.transfer_group_id is not None else None,
             created_at=tx.created_at.isoformat() if hasattr(tx.created_at, "isoformat") else str(tx.created_at),
             suggested_category_id=suggested_category_id,
+            suggested_is_transfer=suggested_is_transfer,
+            suggested_transfer_pair=suggested_transfer_pair,
         )
+
+
+def _replace_output(
+    output: TransactionOutput,
+    suggested_transfer_pair: Optional[TransferPairRef] = None,
+) -> TransactionOutput:
+    from dataclasses import replace
+
+    return replace(output, suggested_transfer_pair=suggested_transfer_pair)

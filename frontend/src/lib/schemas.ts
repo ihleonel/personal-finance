@@ -204,6 +204,13 @@ export type Transaction = {
   transfer_group_id: string | null
   created_at: string
   suggested_category_id?: number | null
+  suggested_is_transfer?: boolean
+  suggested_transfer_pair?: TransferPairRef | null
+}
+
+export type TransferPairRef = {
+  source_id: number
+  destination_id: number
 }
 
 export type TransactionFilters = {
@@ -211,8 +218,10 @@ export type TransactionFilters = {
   kind?: string
   category_id?: number
   category_id_isnull?: boolean
+  transfer_group_id_isnull?: boolean
   date_from?: string
   date_to?: string
+  description?: string
 }
 
 export type PaginatedResponse<T> = {
@@ -262,6 +271,11 @@ export type TransferOutput = {
   destination: Transaction
 }
 
+export type LinkTransferInput = {
+  source_id: number
+  destination_id: number
+}
+
 export type ImportSkippedRow = {
   row_number: number
   external_reference: string
@@ -298,3 +312,154 @@ export const transactionUpdateSchema = z.object({
   category_id: z.number().nullable().optional(),
 })
 export type TransactionUpdateInput = z.infer<typeof transactionUpdateSchema>
+
+export type BulkAssignCategoryInput = {
+  transaction_ids: number[]
+  category_id: number | null
+}
+
+export type BulkAssignCategoryResult = {
+  updated_count: number
+  skipped_ids: number[]
+  skipped_kinds: number[]
+  skipped_transfers: number[]
+}
+
+export type AssignByFiltersInput = {
+  filters: TransactionFilters
+  category_id: number | null
+}
+
+export type AssignByFiltersResult = {
+  updated_count: number
+}
+
+export const transferDetectionRuleSchema = z.object({
+  pattern: z
+    .string()
+    .min(1, "El patrón es obligatorio")
+    .max(120, "Asegúrate de que el patrón no tenga más de 120 caracteres."),
+  match_type: z.enum(["contains", "equals"]),
+  priority: z.number().int().min(0, "La prioridad debe ser un número no negativo."),
+})
+
+export type TransferDetectionRuleInput = z.infer<typeof transferDetectionRuleSchema>
+
+export type TransferDetectionRuleUpdateInput = Partial<TransferDetectionRuleInput>
+
+export type TransferDetectionRule = {
+  id: number
+  owner_id: number
+  pattern: string
+  match_type: string
+  priority: number
+  is_active: boolean
+}
+
+export type SuggestTransferResult = {
+  is_transfer: boolean
+}
+
+export type TransferPairSuggestion = {
+  source_id: number
+  destination_id: number
+  amount: string
+  source_account_id: number
+  destination_account_id: number
+  source_date: string
+  destination_date: string
+  score: number
+  matched_by: string
+}
+
+export type DetectTransfersInput = {
+  account_id?: number
+  date_from?: string
+  date_to?: string
+  window_days?: number
+  amount_tolerance?: string
+}
+
+export type DetectTransfersResult = {
+  suggestions: TransferPairSuggestion[]
+}
+
+export const REPORT_PERIODS = [
+  { value: "week", label: "Semanas" },
+  { value: "month", label: "Meses" },
+  { value: "year", label: "Años" },
+] as const
+
+export const REPORT_PERIODS_COUNTS = [
+  { value: 1, label: "1" },
+  { value: 2, label: "2" },
+  { value: 3, label: "3" },
+  { value: 4, label: "4" },
+  { value: 5, label: "5" },
+  { value: 6, label: "6" },
+  { value: 7, label: "7" },
+  { value: 8, label: "8" },
+  { value: 9, label: "9" },
+  { value: 10, label: "10" },
+  { value: 11, label: "11" },
+  { value: 12, label: "12" },
+] as const
+
+export type ReportPeriod = "week" | "month" | "year"
+
+export type ReportFilters = {
+  period: ReportPeriod
+  periods_count: number
+  account_id?: number
+}
+
+export type PeriodBucket = {
+  key: string
+  label: string
+  income: string
+  expense: string
+  net: string
+}
+
+export type CurrentPeriod = PeriodBucket & {
+  is_partial: boolean
+  days_elapsed: number
+  days_total: number
+}
+
+export type IncomeExpenseSummary = {
+  period: string
+  periods_count: number
+  buckets: PeriodBucket[]
+  current_period: CurrentPeriod
+}
+
+export type CategoryPeriodColumn = {
+  key: string
+  label: string
+  is_partial: boolean
+  days_elapsed: number
+  days_total: number
+}
+
+export type CategoryRow = {
+  category_id: number | null
+  name: string
+  kind: string
+  is_uncategorized: boolean
+  is_active: boolean
+  amounts: string[]
+}
+
+export type CategorySummary = {
+  period: string
+  periods_count: number
+  columns: CategoryPeriodColumn[]
+  rows: CategoryRow[]
+  totals: CategoryTotals
+}
+
+export type CategoryTotals = {
+  amounts: string[]
+  accumulated: string[]
+}

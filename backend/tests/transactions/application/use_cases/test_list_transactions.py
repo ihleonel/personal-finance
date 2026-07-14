@@ -151,3 +151,44 @@ class TestListTransactionsUseCase(unittest.TestCase):
         self.assertTrue(result.is_success)
         dates = [t.date for t in result.value]
         self.assertEqual(dates, ["2026-03-01", "2026-02-01", "2026-01-01"])
+
+    def test_filters_by_description_substring(self) -> None:
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("100"), date=date(2026, 1, 1),
+            description="Transferencia CTA 12345",
+        )
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="income",
+            amount=Decimal("200"), date=date(2026, 1, 2),
+            description="OUTSOURCE ARGENTINA",
+        )
+        result = self.use_case.execute(
+            owner_id=1, filters=ListTransactionsFilters(description="transferencia")
+        )
+        self.assertTrue(result.is_success)
+        self.assertEqual(len(result.value), 1)
+        self.assertIn("Transferencia", result.value[0].description)
+
+    def test_filters_by_description_normalizes_diacritics_and_digits(self) -> None:
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="expense",
+            amount=Decimal("100"), date=date(2026, 1, 1),
+            description="Café 1234",
+        )
+        result = self.use_case.execute(
+            owner_id=1, filters=ListTransactionsFilters(description="cafe")
+        )
+        self.assertTrue(result.is_success)
+        self.assertEqual(len(result.value), 1)
+
+    def test_filters_by_description_empty_returns_all(self) -> None:
+        self.repo.seed(
+            owner_id=1, account_id=10, kind="income",
+            amount=Decimal("100"), date=date(2026, 1, 1), description="Algo",
+        )
+        result = self.use_case.execute(
+            owner_id=1, filters=ListTransactionsFilters(description="")
+        )
+        self.assertTrue(result.is_success)
+        self.assertEqual(len(result.value), 1)

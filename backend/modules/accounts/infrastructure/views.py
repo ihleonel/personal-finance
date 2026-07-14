@@ -13,9 +13,11 @@ from modules.accounts.application.use_cases.activate_account import ActivateAcco
 from modules.accounts.application.use_cases.create_account import CreateAccountUseCase
 from modules.accounts.application.use_cases.deactivate_account import DeactivateAccountUseCase
 from modules.accounts.application.use_cases.get_account import GetAccountUseCase
+from modules.accounts.application.use_cases.get_account_balance import GetAccountBalanceUseCase
 from modules.accounts.application.use_cases.list_accounts import ListAccountsUseCase
 from modules.accounts.application.use_cases.update_account import UpdateAccountUseCase
 from modules.shared.application.result import ValidationError
+from modules.transactions.infrastructure.repositories import DjangoTransactionRepository
 
 from .repositories import DjangoAccountRepository
 from .serializers import CreateAccountSerializer, UpdateAccountSerializer
@@ -118,6 +120,41 @@ class AccountDeactivateView(APIView):
     def post(self, request: Request, account_id: int) -> Response:
         use_case = DeactivateAccountUseCase(repository=_repository())
         result = use_case.execute(request.user.id, account_id)
+        if not result.is_success:
+            code = result.errors[0].code if result.errors else ""
+            if code == "accounts.account.not_found":
+                return Response(
+                    {"detail": result.errors[0].message, "code": code},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            return Response(
+                _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(_output_to_dict(result.value), status=status.HTTP_200_OK)
+
+
+class AccountBalanceView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request: Request, account_id: int) -> Response:
+        from datetime import date as _date
+
+        date_to: _date | None = None
+        raw = request.query_params.get("date_to")
+        if raw:
+            try:
+                date_to = _date.fromisoformat(raw)
+            except ValueError:
+                return Response(
+                    {"date_to": ["Formato inválido. Use YYYY-MM-DD."]},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+        use_case = GetAccountBalanceUseCase(
+            repository=DjangoTransactionRepository(),
+            account_repository=_repository(),
+        )
+        result = use_case.execute(request.user.id, account_id, date_to=date_to)
         if not result.is_success:
             code = result.errors[0].code if result.errors else ""
             if code == "accounts.account.not_found":

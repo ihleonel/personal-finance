@@ -29,6 +29,13 @@ class CreateTransferInput:
 
 
 @dataclass(frozen=True)
+class LinkTransferInput:
+    owner_id: int
+    source_id: int
+    destination_id: int
+
+
+@dataclass(frozen=True)
 class UpdateTransactionInput:
     amount: Optional[str] = None
     date: Optional[str] = None
@@ -46,8 +53,16 @@ class ListTransactionsFilters:
     kind: Optional[str] = None
     category_id: Optional[int] = None
     category_id_isnull: bool = False
+    transfer_group_id_isnull: Optional[bool] = None
     date_from: Optional[str] = None
     date_to: Optional[str] = None
+    description: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class TransferPairRef:
+    source_id: int
+    destination_id: int
 
 
 @dataclass(frozen=True)
@@ -63,6 +78,8 @@ class TransactionOutput:
     transfer_group_id: Optional[str]
     created_at: str
     suggested_category_id: Optional[int] = None
+    suggested_is_transfer: bool = False
+    suggested_transfer_pair: Optional[TransferPairRef] = None
 
 
 @dataclass(frozen=True)
@@ -108,3 +125,31 @@ class ImportTransactionResult:
     skipped: list[ImportSkippedRow]
     errors: list[ImportErrorRow]
     summary: ImportSummary
+
+
+@dataclass(frozen=True)
+class BulkAssignCategoryInput:
+    owner_id: int
+    transaction_ids: list[int]
+    category_id: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class BulkAssignCategoryOutput:
+    updated_count: int
+    skipped_ids: list[int]
+    skipped_kinds: list[int]
+    skipped_transfers: list[int]
+
+
+@dataclass(frozen=True)
+class AssignCategoryByFiltersInput:
+    owner_id: int
+    filters: "ListTransactionsFilters"
+    category_id: Optional[int] = None
+    dry_run: bool = False
+
+
+@dataclass(frozen=True)
+class AssignCategoryByFiltersOutput:
+    updated_count: int

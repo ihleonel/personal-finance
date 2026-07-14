@@ -130,6 +130,30 @@ class CreateTransferSerializer(serializers.Serializer):
         }
 
 
+class LinkTransferSerializer(serializers.Serializer):
+    source_id = serializers.IntegerField(
+        error_messages={
+            "required": "La transacción de origen es obligatoria.",
+            "invalid": "La transacción de origen no es válida.",
+            "null": "La transacción de origen es obligatoria.",
+        },
+    )
+    destination_id = serializers.IntegerField(
+        error_messages={
+            "required": "La transacción de destino es obligatoria.",
+            "invalid": "La transacción de destino no es válida.",
+            "null": "La transacción de destino es obligatoria.",
+        },
+    )
+
+    def to_dto(self) -> dict:
+        data = self.validated_data
+        return {
+            "source_id": data["source_id"],
+            "destination_id": data["destination_id"],
+        }
+
+
 class UpdateTransactionSerializer(serializers.Serializer):
     amount = serializers.DecimalField(
         max_digits=14,
@@ -212,6 +236,11 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
         required=False,
         default=False,
     )
+    transfer_group_id_isnull = serializers.BooleanField(
+        required=False,
+        allow_null=True,
+        default=None,
+    )
     date_from = serializers.DateField(
         required=False,
         allow_null=True,
@@ -221,6 +250,11 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
         required=False,
         allow_null=True,
         error_messages={"invalid": "La fecha de fin no es válida."},
+    )
+    description = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        error_messages={"invalid": "La descripción no es válida."},
     )
 
     def to_filters(self) -> dict:
@@ -235,4 +269,95 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
                     out[key] = value
         if data.get("category_id_isnull"):
             out["category_id_isnull"] = True
+        transfer_group_isnull = data.get("transfer_group_id_isnull")
+        if transfer_group_isnull is not None:
+            out["transfer_group_id_isnull"] = transfer_group_isnull
+        description = data.get("description")
+        if description:
+            out["description"] = description
+        return out
+
+
+class BulkAssignCategorySerializer(serializers.Serializer):
+    transaction_ids = serializers.ListField(
+        child=serializers.IntegerField(
+            error_messages={
+                "invalid": "La transacción no es válida.",
+            },
+        ),
+        min_length=1,
+        error_messages={
+            "required": "Seleccioná al menos una transacción.",
+            "empty": "Seleccioná al menos una transacción.",
+            "not_a_list": "La lista de transacciones no es válida.",
+        },
+    )
+    category_id = serializers.IntegerField(
+        required=False,
+        allow_null=True,
+        error_messages={
+            "invalid": "La categoría no es válida.",
+        },
+    )
+
+
+class AssignCategoryByFiltersSerializer(serializers.Serializer):
+    account_id = serializers.IntegerField(
+        required=False, allow_null=True,
+        error_messages={"invalid": "La cuenta no es válida."},
+    )
+    kind = serializers.ChoiceField(
+        choices=Transaction.Kind.choices,
+        required=False, allow_null=True,
+        error_messages={"invalid_choice": "El tipo de transacción no es válido."},
+    )
+    category_id_filter = serializers.IntegerField(
+        required=False, allow_null=True,
+        error_messages={"invalid": "La categoría no es válida."},
+    )
+    category_id_isnull = serializers.BooleanField(required=False, default=False)
+    transfer_group_id_isnull = serializers.BooleanField(
+        required=False, allow_null=True, default=None,
+    )
+    date_from = serializers.DateField(
+        required=False, allow_null=True,
+        error_messages={"invalid": "La fecha de inicio no es válida."},
+    )
+    date_to = serializers.DateField(
+        required=False, allow_null=True,
+        error_messages={"invalid": "La fecha de fin no es válida."},
+    )
+    description = serializers.CharField(
+        required=False, allow_blank=True,
+        error_messages={"invalid": "La descripción no es válida."},
+    )
+    category_id = serializers.IntegerField(
+        required=False, allow_null=True,
+        error_messages={"invalid": "La categoría a asignar no es válida."},
+    )
+    dry_run = serializers.BooleanField(required=False, default=False)
+
+    def to_filters(self) -> dict:
+        data = self.validated_data
+        out: dict = {}
+        if data.get("account_id") is not None:
+            out["account_id"] = data["account_id"]
+        if data.get("kind") is not None:
+            out["kind"] = data["kind"]
+        if data.get("category_id_filter") is not None:
+            out["category_id"] = data["category_id_filter"]
+        date_from = data.get("date_from")
+        if date_from is not None and hasattr(date_from, "isoformat"):
+            out["date_from"] = date_from.isoformat()
+        date_to = data.get("date_to")
+        if date_to is not None and hasattr(date_to, "isoformat"):
+            out["date_to"] = date_to.isoformat()
+        if data.get("category_id_isnull"):
+            out["category_id_isnull"] = True
+        transfer_group_isnull = data.get("transfer_group_id_isnull")
+        if transfer_group_isnull is not None:
+            out["transfer_group_id_isnull"] = transfer_group_isnull
+        description = data.get("description")
+        if description:
+            out["description"] = description
         return out

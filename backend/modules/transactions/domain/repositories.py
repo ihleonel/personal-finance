@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Optional
@@ -52,8 +53,10 @@ class TransactionRepository(ABC):
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
         category_id_isnull: bool = False,
+        transfer_group_id_isnull: Optional[bool] = None,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
+        description: Optional[str] = None,
     ) -> list[Transaction]: ...
 
     @abstractmethod
@@ -83,3 +86,50 @@ class TransactionRepository(ABC):
         description: str,
         category_id: Optional[int],
     ) -> tuple[Transaction, Transaction]: ...
+
+    @abstractmethod
+    def link_transfer(
+        self,
+        source_id: int,
+        destination_id: int,
+        transfer_group_id: UUID,
+    ) -> tuple[Transaction, Transaction]: ...
+
+    @abstractmethod
+    def bulk_assign_category(
+        self,
+        owner_id: int,
+        transaction_ids: list[int],
+        category_id: Optional[int],
+        expected_kind: Optional[str],
+    ) -> "BulkAssignCategoryResult": ...
+
+    @abstractmethod
+    def assign_category_by_filters(
+        self,
+        owner_id: int,
+        filters: "ListTransactionsFiltersLike",
+        category_id: Optional[int],
+        expected_kind: Optional[str],
+    ) -> int: ...
+
+
+class ListTransactionsFiltersLike(ABC):
+    """Structural protocol for filters accepted by assign_category_by_filters."""
+
+    account_id: Optional[int]
+    kind: Optional[str]
+    category_id: Optional[int]
+    category_id_isnull: bool
+    transfer_group_id_isnull: Optional[bool]
+    date_from: Optional[date]
+    date_to: Optional[date]
+    description: Optional[str]
+
+
+@dataclass
+class BulkAssignCategoryResult:
+    updated_count: int
+    skipped_ids: list[int]
+    skipped_kinds: list[int]
+    skipped_transfers: list[int]

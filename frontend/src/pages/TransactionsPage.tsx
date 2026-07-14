@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ArrowRightLeft, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Receipt, Trash2, Upload } from "lucide-react"
+import { ArrowRightLeft, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Receipt, Search, Tags, Trash2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -10,6 +10,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Table,
   TableBody,
@@ -29,8 +30,10 @@ import {
 } from "@/components/ui/select"
 import { TransactionFormDialog } from "@/components/transactions/TransactionFormDialog"
 import { TransferFormDialog } from "@/components/transactions/TransferFormDialog"
+import { DetectTransfersDialog } from "@/components/transactions/DetectTransfersDialog"
 import { ImportTransactionsDialog } from "@/components/transactions/ImportTransactionsDialog"
 import { CategoryCell } from "@/components/transactions/CategoryCell"
+import { BulkAssignCategoryDialog } from "@/components/transactions/BulkAssignCategoryDialog"
 import {
   TRANSACTION_KINDS,
   type Account,
@@ -61,8 +64,12 @@ export function TransactionsPage() {
   const [txDialogOpen, setTxDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
   const [transferDialogOpen, setTransferDialogOpen] = useState(false)
+  const [detectDialogOpen, setDetectDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const [selected, setSelected] = useState<Set<number>>(new Set())
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
+  const [bulkMode, setBulkMode] = useState<"selection" | "filters">("selection")
 
   useEffect(() => {
     let active = true
@@ -161,6 +168,16 @@ export function TransactionsPage() {
     setTransactions((prev) => [transfer.source, transfer.destination, ...prev])
   }
 
+  function handleLinked(transfer: TransferOutput) {
+    setTransactions((prev) => {
+      return prev.map((tx) => {
+        if (tx.id === transfer.source.id) return transfer.source
+        if (tx.id === transfer.destination.id) return transfer.destination
+        return tx
+      })
+    })
+  }
+
   function handleImported() {
     setLoading(true)
     fetchTransactions(filters, page)
@@ -212,13 +229,70 @@ export function TransactionsPage() {
   ) {
     setLoading(true)
     setPage(1)
+    setSelected(new Set())
     setFilters((prev) => ({ ...prev, [key]: value || undefined }))
   }
 
   function clearFilters() {
     setLoading(true)
     setPage(1)
+    setSelected(new Set())
     setFilters({})
+  }
+
+  const selectableTxs = transactions.filter((t) => t.transfer_group_id == null)
+  const allSelectableSelected =
+    selectableTxs.length > 0 &&
+    selectableTxs.every((t) => selected.has(t.id))
+  const someSelectableSelected =
+    selectableTxs.some((t) => selected.has(t.id)) && !allSelectableSelected
+
+  function toggleSelectAll() {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (allSelectableSelected) {
+        for (const t of selectableTxs) next.delete(t.id)
+      } else {
+        for (const t of selectableTxs) next.add(t.id)
+      }
+      return next
+    })
+  }
+
+  function toggleSelect(id: number) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function openBulkSelection() {
+    setBulkMode("selection")
+    setBulkDialogOpen(true)
+  }
+
+  function openBulkFilters() {
+    setBulkMode("filters")
+    setBulkDialogOpen(true)
+  }
+
+  async function handleBulkDone() {
+    setSelected(new Set())
+    setLoading(true)
+    try {
+      const data = await fetchTransactions(filters, page)
+      setTransactions(data.results)
+      setCount(data.count)
+      setError(null)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : "No pudimos cargar tus transacciones",
+      )
+    } finally {
+      setLoading(false)
+    }
   }
 
   const accountName = (id: number) =>
@@ -238,6 +312,10 @@ export function TransactionsPage() {
           <Button variant="outline" onClick={() => setTransferDialogOpen(true)}>
             <ArrowRightLeft />
             Nueva transferencia
+          </Button>
+          <Button variant="outline" onClick={() => setDetectDialogOpen(true)}>
+            <Search />
+            Detectar transferencias
           </Button>
           <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
             <Upload />
@@ -320,6 +398,7 @@ export function TransactionsPage() {
                 onValueChange={(v) => {
                   setLoading(true)
                   setPage(1)
+                  setSelected(new Set())
                   if (v === "all") {
                     setFilters((prev) => {
                       const next = { ...prev }
@@ -358,24 +437,14 @@ export function TransactionsPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-sm font-medium">Desde</label>
+              <label className="block text-sm font-medium">Descripción</label>
               <Input
-                type="date"
-                className="w-[160px]"
-                data-testid="filter-date-from"
-                value={filters.date_from ?? ""}
-                onChange={(e) => updateFilter("date_from", e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="block text-sm font-medium">Hasta</label>
-              <Input
-                type="date"
-                className="w-[160px]"
-                data-testid="filter-date-to"
-                value={filters.date_to ?? ""}
-                onChange={(e) => updateFilter("date_to", e.target.value)}
+                type="text"
+                placeholder="Buscar…"
+                className="w-[200px]"
+                data-testid="filter-description"
+                value={filters.description ?? ""}
+                onChange={(e) => updateFilter("description", e.target.value)}
               />
             </div>
 
@@ -386,12 +455,50 @@ export function TransactionsPage() {
         </CardContent>
       </Card>
 
+      {selected.size > 0 ? (
+        <div
+          className="sticky bottom-4 z-10 mx-auto flex max-w-5xl items-center gap-3 rounded-lg border bg-background/95 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/60"
+          data-testid="bulk-action-bar"
+        >
+          <span className="text-sm font-medium">
+            {selected.size} {selected.size === 1 ? "seleccionada" : "seleccionadas"}
+          </span>
+          <Button size="sm" onClick={openBulkSelection} data-testid="bulk-assign-selection-btn">
+            <Tags />
+            Asignar categoría
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSelected(new Set())}
+          >
+            <X />
+            Limpiar
+          </Button>
+        </div>
+      ) : null}
+
       <Card>
         <CardHeader>
-          <CardTitle>Movimientos</CardTitle>
-          <CardDescription>
-            Acá aparecen todas las transacciones que registraste.
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Movimientos</CardTitle>
+              <CardDescription>
+                Acá aparecen todas las transacciones que registraste.
+              </CardDescription>
+            </div>
+            {count > 0 ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={openBulkFilters}
+                data-testid="bulk-assign-filters-btn"
+              >
+                <Tags />
+                Asignar a los filtrados ({count})
+              </Button>
+            ) : null}
+          </div>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -420,6 +527,20 @@ export function TransactionsPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-10">
+                    <Checkbox
+                      checked={
+                        allSelectableSelected
+                          ? true
+                          : someSelectableSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Seleccionar todas"
+                      data-testid="bulk-select-all"
+                    />
+                  </TableHead>
                   <TableHead>Fecha</TableHead>
                   <TableHead>Descripción</TableHead>
                   <TableHead>Cuenta</TableHead>
@@ -433,6 +554,7 @@ export function TransactionsPage() {
                 {transactions.map((tx) => {
                   const isTransfer = tx.transfer_group_id != null
                   const isConfirming = confirmingId === tx.id
+                  const isSelected = selected.has(tx.id)
                   const signedAmount = tx.kind === "income" ? `+${formatAmount(tx.amount)}` : `−${formatAmount(tx.amount)}`
                   const amountColor = isTransfer
                     ? "text-foreground"
@@ -440,7 +562,16 @@ export function TransactionsPage() {
                       ? "text-secondary-foreground"
                       : "text-destructive"
                   return (
-                    <TableRow key={tx.id}>
+                    <TableRow key={tx.id} data-selected={isSelected}>
+                      <TableCell>
+                        <Checkbox
+                          checked={isSelected}
+                          onCheckedChange={() => toggleSelect(tx.id)}
+                          disabled={isTransfer}
+                          aria-label="Seleccionar transacción"
+                          data-testid={`bulk-select-${tx.id}`}
+                        />
+                      </TableCell>
                       <TableCell className="whitespace-nowrap">
                         {formatDate(tx.date)}
                       </TableCell>
@@ -459,6 +590,14 @@ export function TransactionsPage() {
                         {isTransfer ? (
                           <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
                             Transferencia
+                          </span>
+                        ) : tx.suggested_is_transfer ? (
+                          <span
+                            className="inline-flex items-center rounded-full border border-dashed border-amber-500/60 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
+                            data-testid={`tx-transfer-suggestion-${tx.id}`}
+                            title="La descripción coincide con una regla de detección de transferencias"
+                          >
+                            ¿Transferencia?
                           </span>
                         ) : (
                           <span
@@ -535,7 +674,7 @@ export function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setLoading(true); setPage((p) => Math.max(1, p - 1)) }}
+                  onClick={() => { setLoading(true); setSelected(new Set()); setPage((p) => Math.max(1, p - 1)) }}
                   disabled={page <= 1}
                   data-testid="tx-pagination-prev"
                 >
@@ -545,7 +684,7 @@ export function TransactionsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => { setLoading(true); setPage((p) => p + 1) }}
+                  onClick={() => { setLoading(true); setSelected(new Set()); setPage((p) => p + 1) }}
                   disabled={page >= totalPages}
                   data-testid="tx-pagination-next"
                 >
@@ -575,11 +714,29 @@ export function TransactionsPage() {
         onSaved={handleTransferSaved}
       />
 
+      <DetectTransfersDialog
+        open={detectDialogOpen}
+        onOpenChange={setDetectDialogOpen}
+        accounts={accounts}
+        onLinked={handleLinked}
+      />
+
       <ImportTransactionsDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
         accounts={accounts}
         onImported={handleImported}
+      />
+
+      <BulkAssignCategoryDialog
+        open={bulkDialogOpen}
+        onOpenChange={setBulkDialogOpen}
+        categories={categories}
+        mode={bulkMode}
+        selectedTxs={transactions.filter((t) => selected.has(t.id))}
+        filters={filters}
+        filteredCount={count}
+        onDone={handleBulkDone}
       />
     </div>
   )

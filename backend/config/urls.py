@@ -12,5 +12,7 @@ urlpatterns = [
     path('api/accounts/', include('modules.accounts.infrastructure.urls')),
     path('api/categories/', include('modules.categories.infrastructure.urls')),
     path('api/categorization-rules/', include('modules.categorization_rules.infrastructure.urls')),
+    path('api/transfer-detection/', include('modules.transfer_detection.infrastructure.urls')),
     path('api/transactions/', include('modules.transactions.infrastructure.urls')),
+    path('api/reports/', include('modules.reports.infrastructure.urls')),
 ]

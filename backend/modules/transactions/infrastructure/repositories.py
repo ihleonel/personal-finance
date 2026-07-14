@@ -8,8 +8,12 @@ from uuid import UUID
 from django.db import transaction as db_transaction
 
 from modules.shared.domain.optional import UNSET
+from modules.shared.domain.text_utils import normalize_description
 from modules.transactions.domain.entities import Transaction
-from modules.transactions.domain.repositories import TransactionRepository
+from modules.transactions.domain.repositories import (
+    BulkAssignCategoryResult,
+    TransactionRepository,
+)
 from modules.transactions.models import Transaction as TransactionORM
 from modules.transactions.models import new_transfer_group_id
 
@@ -83,8 +87,10 @@ class DjangoTransactionRepository(TransactionRepository):
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
         category_id_isnull: bool = False,
+        transfer_group_id_isnull: Optional[bool] = None,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
+        description: Optional[str] = None,
     ) -> list[Transaction]:
         qs = TransactionORM.objects.filter(owner_id=owner_id)
         if account_id is not None:
@@ -95,12 +101,23 @@ class DjangoTransactionRepository(TransactionRepository):
             qs = qs.filter(category_id__isnull=True)
         elif category_id is not None:
             qs = qs.filter(category_id=category_id)
+        if transfer_group_id_isnull is True:
+            qs = qs.filter(transfer_group_id__isnull=True)
+        elif transfer_group_id_isnull is False:
+            qs = qs.filter(transfer_group_id__isnull=False)
         if date_from is not None:
             qs = qs.filter(date__gte=date_from)
         if date_to is not None:
             qs = qs.filter(date__lte=date_to)
         qs = qs.order_by("-date", "-created_at")
-        return [self._to_entity(o) for o in qs]
+        entities = [self._to_entity(o) for o in qs]
+        if description:
+            needle = normalize_description(description)
+            if needle:
+                entities = [
+                    t for t in entities if needle in normalize_description(t.description or "")
+                ]
+        return entities
 
     def update(
         self,
@@ -166,6 +183,102 @@ class DjangoTransactionRepository(TransactionRepository):
                 transfer_group_id=group_id,
             )
         return self._to_entity(source_orm), self._to_entity(destination_orm)
+
+    def link_transfer(
+        self,
+        source_id: int,
+        destination_id: int,
+        transfer_group_id: UUID,
+    ) -> tuple[Transaction, Transaction]:
+        with db_transaction.atomic():
+            TransactionORM.objects.filter(pk=source_id).update(
+                transfer_group_id=transfer_group_id
+            )
+            TransactionORM.objects.filter(pk=destination_id).update(
+                transfer_group_id=transfer_group_id
+            )
+        return self.find_by_id(source_id), self.find_by_id(destination_id)  # type: ignore[return-value]
+
+    def bulk_assign_category(
+        self,
+        owner_id: int,
+        transaction_ids: list[int],
+        category_id: Optional[int],
+        expected_kind: Optional[str],
+    ) -> BulkAssignCategoryResult:
+        with db_transaction.atomic():
+            qs = TransactionORM.objects.filter(
+                owner_id=owner_id, pk__in=transaction_ids
+            )
+            transfers = list(qs.filter(transfer_group_id__isnull=False).values_list("pk", flat=True))
+            if expected_kind is not None:
+                mismatched = list(
+                    qs.filter(transfer_group_id__isnull=True)
+                    .exclude(kind=expected_kind)
+                    .values_list("pk", flat=True)
+                )
+            else:
+                mismatched = []
+
+            target = qs.filter(transfer_group_id__isnull=True)
+            if expected_kind is not None:
+                target = target.filter(kind=expected_kind)
+            updated_count = target.update(category_id=category_id)
+
+            found_ids = set(qs.values_list("pk", flat=True))
+            skipped_ids = [tid for tid in transaction_ids if tid not in found_ids]
+            return BulkAssignCategoryResult(
+                updated_count=updated_count,
+                skipped_ids=skipped_ids,
+                skipped_kinds=mismatched,
+                skipped_transfers=list(transfers),
+            )
+
+    def assign_category_by_filters(
+        self,
+        owner_id: int,
+        filters,
+        category_id: Optional[int],
+        expected_kind: Optional[str],
+    ) -> int:
+        qs = TransactionORM.objects.filter(owner_id=owner_id)
+        if filters.account_id is not None:
+            qs = qs.filter(account_id=filters.account_id)
+        if filters.kind is not None:
+            qs = qs.filter(kind=filters.kind)
+        if filters.category_id_isnull:
+            qs = qs.filter(category_id__isnull=True)
+        elif filters.category_id is not None:
+            qs = qs.filter(category_id=filters.category_id)
+        if filters.transfer_group_id_isnull is True:
+            qs = qs.filter(transfer_group_id__isnull=True)
+        elif filters.transfer_group_id_isnull is False:
+            qs = qs.filter(transfer_group_id__isnull=False)
+        if filters.date_from is not None:
+            qs = qs.filter(date__gte=filters.date_from)
+        if filters.date_to is not None:
+            qs = qs.filter(date__lte=filters.date_to)
+
+        qs = qs.filter(transfer_group_id__isnull=True)
+        if expected_kind is not None:
+            qs = qs.filter(kind=expected_kind)
+
+        matching_ids = list(qs.values_list("pk", flat=True))
+        if filters.description:
+            needle = normalize_description(filters.description)
+            if needle:
+                orms = qs.only("pk", "description").iterator()
+                matching_ids = [
+                    o.pk
+                    for o in orms
+                    if needle in normalize_description(o.description or "")
+                ]
+
+        if not matching_ids:
+            return 0
+        return TransactionORM.objects.filter(pk__in=matching_ids).update(
+            category_id=category_id
+        )
 
     @staticmethod
     def _to_entity(orm: TransactionORM) -> Transaction:

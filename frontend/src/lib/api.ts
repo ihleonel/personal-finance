@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AuthSession, AuthTokens, Category, CategoryInput, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, ImportTransactionResult, PaginatedResponse, ProfileInput, SuggestCategoryResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
+import type { Account, AccountInput, AssignByFiltersInput, AssignByFiltersResult, AuthSession, AuthTokens, BulkAssignCategoryInput, BulkAssignCategoryResult, Category, CategoryInput, CategorySummary, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, DetectTransfersInput, DetectTransfersResult, ImportTransactionResult, IncomeExpenseSummary, LinkTransferInput, PaginatedResponse, ProfileInput, ReportFilters, SuggestCategoryResult, SuggestTransferResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferDetectionRule, TransferDetectionRuleInput, TransferDetectionRuleUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -242,6 +242,7 @@ function buildQueryString(filters: TransactionFilters, page?: number): string {
   if (filters.category_id != null) params.set("category_id", String(filters.category_id))
   if (filters.date_from) params.set("date_from", filters.date_from)
   if (filters.date_to) params.set("date_to", filters.date_to)
+  if (filters.description) params.set("description", filters.description)
   if (page != null && page > 1) params.set("page", String(page))
   const qs = params.toString()
   return qs ? `?${qs}` : ""
@@ -279,6 +280,10 @@ export async function createTransfer(
   return api.post<TransferOutput>("/transactions/transfer/", input)
 }
 
+export async function linkTransfer(input: LinkTransferInput): Promise<TransferOutput> {
+  return api.post<TransferOutput>("/transactions/transfer/link/", input)
+}
+
 export async function importTransactions(
   file: File,
   accountId: number,
@@ -290,4 +295,104 @@ export async function importTransactions(
     method: "POST",
     body: form,
   })
+}
+
+export async function bulkAssignCategory(
+  input: BulkAssignCategoryInput,
+): Promise<BulkAssignCategoryResult> {
+  return api.post<BulkAssignCategoryResult>(
+    "/transactions/bulk-assign-category/",
+    input,
+  )
+}
+
+export async function assignCategoryByFilters(
+  input: AssignByFiltersInput,
+): Promise<AssignByFiltersResult> {
+  const body: Record<string, unknown> = {
+    category_id: input.category_id,
+  }
+  const f = input.filters
+  if (f.account_id != null) body.account_id = f.account_id
+  if (f.kind) body.kind = f.kind
+  if (f.category_id != null) body.category_id_filter = f.category_id
+  if (f.category_id_isnull) body.category_id_isnull = true
+  if (f.transfer_group_id_isnull != null)
+    body.transfer_group_id_isnull = f.transfer_group_id_isnull
+  if (f.date_from) body.date_from = f.date_from
+  if (f.date_to) body.date_to = f.date_to
+  if (f.description) body.description = f.description
+  return api.post<AssignByFiltersResult>(
+    "/transactions/assign-by-filters/",
+    body,
+  )
+}
+
+export async function fetchTransferDetectionRules(): Promise<TransferDetectionRule[]> {
+  return api.get<TransferDetectionRule[]>("/transfer-detection/")
+}
+
+export async function createTransferDetectionRule(
+  input: TransferDetectionRuleInput,
+): Promise<TransferDetectionRule> {
+  return api.post<TransferDetectionRule>("/transfer-detection/", input)
+}
+
+export async function updateTransferDetectionRule(
+  id: number,
+  input: TransferDetectionRuleUpdateInput,
+): Promise<TransferDetectionRule> {
+  return api.patch<TransferDetectionRule>(`/transfer-detection/${id}/`, input)
+}
+
+export async function deleteTransferDetectionRule(id: number): Promise<void> {
+  await api.del<void>(`/transfer-detection/${id}/`)
+}
+
+export async function deactivateTransferDetectionRule(
+  id: number,
+): Promise<TransferDetectionRule> {
+  return api.post<TransferDetectionRule>(`/transfer-detection/${id}/deactivate/`, {})
+}
+
+export async function activateTransferDetectionRule(
+  id: number,
+): Promise<TransferDetectionRule> {
+  return api.post<TransferDetectionRule>(`/transfer-detection/${id}/activate/`, {})
+}
+
+export async function suggestTransfer(
+  description: string,
+): Promise<SuggestTransferResult> {
+  return api.post<SuggestTransferResult>("/transfer-detection/suggest/", {
+    description,
+  })
+}
+
+export async function detectTransfers(
+  input: DetectTransfersInput,
+): Promise<DetectTransfersResult> {
+  return api.post<DetectTransfersResult>("/transfer-detection/detect/", input)
+}
+
+export async function fetchIncomeExpenseSummary(
+  filters: ReportFilters,
+): Promise<IncomeExpenseSummary> {
+  const params = new URLSearchParams()
+  params.set("period", filters.period)
+  params.set("periods_count", String(filters.periods_count))
+  if (filters.account_id != null) params.set("account_id", String(filters.account_id))
+  const qs = params.toString()
+  return api.get<IncomeExpenseSummary>(`/reports/income-expense/${qs ? `?${qs}` : ""}`)
+}
+
+export async function fetchCategorySummary(
+  filters: ReportFilters,
+): Promise<CategorySummary> {
+  const params = new URLSearchParams()
+  params.set("period", filters.period)
+  params.set("periods_count", String(filters.periods_count))
+  if (filters.account_id != null) params.set("account_id", String(filters.account_id))
+  const qs = params.toString()
+  return api.get<CategorySummary>(`/reports/category-summary/${qs ? `?${qs}` : ""}`)
 }

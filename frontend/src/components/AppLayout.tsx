@@ -13,7 +13,7 @@ const navItems = [
 export function AppLayout() {
   return (
     <div className="flex min-h-svh">
-      <aside className="hidden w-64 shrink-0 flex-col justify-between border-r bg-card p-6 md:flex">
+      <aside className="sticky top-0 hidden h-svh w-64 shrink-0 flex-col justify-between overflow-y-auto border-r bg-card p-6 md:flex">
         <div className="flex flex-col gap-6">
           <div className="flex items-center gap-2 text-lg font-medium">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">

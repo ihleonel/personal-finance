@@ -31,3 +31,11 @@ class AccountOutput:
     currency: str
     initial_balance: str
     is_active: bool
+
+
+@dataclass(frozen=True)
+class AccountBalanceOutput:
+    account_id: int
+    initial_balance: str
+    current_balance: str
+    as_of: Optional[str]
