@@ -254,7 +254,6 @@ export const transferSchema = z
     }),
     amount: z.string().min(1, "El monto es obligatorio."),
     date: z.string().min(1, "La fecha es obligatoria."),
-    category_id: z.number().optional().nullable(),
     description: z
       .string()
       .max(255, "La descripción no puede tener más de 255 caracteres.")

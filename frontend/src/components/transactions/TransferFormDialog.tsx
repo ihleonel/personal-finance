@@ -32,7 +32,6 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   type Account,
-  type Category,
   type TransferInput,
   type TransferOutput,
   transferSchema,
@@ -44,7 +43,6 @@ type TransferFormDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   accounts: Account[]
-  categories: Category[]
   onSaved: (transfer: TransferOutput) => void
 }
 
@@ -60,7 +58,6 @@ export function TransferFormDialog({
   open,
   onOpenChange,
   accounts,
-  categories,
   onSaved,
 }: TransferFormDialogProps) {
   const [submitError, setSubmitError] = useState<string | null>(null)
@@ -72,7 +69,6 @@ export function TransferFormDialog({
       destination_account_id: 0,
       amount: "",
       date: todayISO(),
-      category_id: null,
       description: "",
     },
   })
@@ -86,7 +82,6 @@ export function TransferFormDialog({
       destination_account_id: accounts[1]?.id ?? accounts[0]?.id ?? 0,
       amount: "",
       date: todayISO(),
-      category_id: null,
       description: "",
     })
   }, [open, accounts, form])
@@ -109,7 +104,6 @@ export function TransferFormDialog({
   }
 
   const activeAccounts = accounts.filter((a) => a.is_active)
-  const activeCategories = categories.filter((c) => c.is_active)
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -230,38 +224,6 @@ export function TransferFormDialog({
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="category_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Categoría</FormLabel>
-                  <Select
-                    value={field.value == null ? "none" : String(field.value)}
-                    onValueChange={(v) =>
-                      field.onChange(v === "none" ? null : Number(v))
-                    }
-                    disabled={isSubmitting}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="transfer-category-select">
-                        <SelectValue placeholder="Sin categoría" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">Sin categoría</SelectItem>
-                      {activeCategories.map((c) => (
-                        <SelectItem key={c.id} value={String(c.id)}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

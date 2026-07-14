@@ -710,7 +710,6 @@ export function TransactionsPage() {
         open={transferDialogOpen}
         onOpenChange={setTransferDialogOpen}
         accounts={accounts}
-        categories={categories}
         onSaved={handleTransferSaved}
       />
 
