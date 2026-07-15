@@ -324,15 +324,6 @@ export type BulkAssignCategoryResult = {
   skipped_transfers: number[]
 }
 
-export type AssignByFiltersInput = {
-  filters: TransactionFilters
-  category_id: number | null
-}
-
-export type AssignByFiltersResult = {
-  updated_count: number
-}
-
 export const transferDetectionRuleSchema = z.object({
   pattern: z
     .string()

@@ -69,7 +69,6 @@ export function TransactionsPage() {
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false)
-  const [bulkMode, setBulkMode] = useState<"selection" | "filters">("selection")
 
   useEffect(() => {
     let active = true
@@ -269,12 +268,6 @@ export function TransactionsPage() {
   }
 
   function openBulkSelection() {
-    setBulkMode("selection")
-    setBulkDialogOpen(true)
-  }
-
-  function openBulkFilters() {
-    setBulkMode("filters")
     setBulkDialogOpen(true)
   }
 
@@ -487,17 +480,6 @@ export function TransactionsPage() {
                 Acá aparecen todas las transacciones que registraste.
               </CardDescription>
             </div>
-            {count > 0 ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={openBulkFilters}
-                data-testid="bulk-assign-filters-btn"
-              >
-                <Tags />
-                Asignar a los filtrados ({count})
-              </Button>
-            ) : null}
           </div>
         </CardHeader>
         <CardContent>
@@ -731,10 +713,7 @@ export function TransactionsPage() {
         open={bulkDialogOpen}
         onOpenChange={setBulkDialogOpen}
         categories={categories}
-        mode={bulkMode}
         selectedTxs={transactions.filter((t) => selected.has(t.id))}
-        filters={filters}
-        filteredCount={count}
         onDone={handleBulkDone}
       />
     </div>

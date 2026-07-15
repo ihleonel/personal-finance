@@ -1,7 +1,6 @@
 from django.urls import path
 
 from .views import (
-    TransactionAssignByFiltersView,
     TransactionBulkAssignCategoryView,
     TransactionImportView,
     TransferCreateView,
@@ -20,11 +19,6 @@ urlpatterns = [
         "bulk-assign-category/",
         TransactionBulkAssignCategoryView.as_view(),
         name="transactions-bulk-assign-category",
-    ),
-    path(
-        "assign-by-filters/",
-        TransactionAssignByFiltersView.as_view(),
-        name="transactions-assign-by-filters",
     ),
     path(
         "<int:transaction_id>/",

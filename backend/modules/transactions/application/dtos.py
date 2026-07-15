@@ -140,16 +140,3 @@ class BulkAssignCategoryOutput:
     skipped_ids: list[int]
     skipped_kinds: list[int]
     skipped_transfers: list[int]
-
-
-@dataclass(frozen=True)
-class AssignCategoryByFiltersInput:
-    owner_id: int
-    filters: "ListTransactionsFilters"
-    category_id: Optional[int] = None
-    dry_run: bool = False
-
-
-@dataclass(frozen=True)
-class AssignCategoryByFiltersOutput:
-    updated_count: int

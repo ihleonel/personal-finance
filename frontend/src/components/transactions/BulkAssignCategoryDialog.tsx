@@ -18,20 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  assignCategoryByFilters,
-  bulkAssignCategory,
-} from "@/lib/api"
-import type { Category, Transaction, TransactionFilters } from "@/lib/schemas"
+import { bulkAssignCategory } from "@/lib/api"
+import type { Category, Transaction } from "@/lib/schemas"
 
 type BulkAssignCategoryDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   categories: Category[]
-  mode: "selection" | "filters"
   selectedTxs: Transaction[]
-  filters: TransactionFilters
-  filteredCount: number
   onDone: () => void
 }
 
@@ -39,23 +33,16 @@ export function BulkAssignCategoryDialog({
   open,
   onOpenChange,
   categories,
-  mode,
   selectedTxs,
-  filters,
-  filteredCount,
   onDone,
 }: BulkAssignCategoryDialogProps) {
   const [categoryId, setCategoryId] = useState<string>("none")
   const [busy, setBusy] = useState(false)
 
   const selectedKinds = new Set(selectedTxs.map((t) => t.kind))
-  const kindLocked = filters.kind != null
-  const hasMismatch = mode === "selection" && selectedKinds.size > 1
-  const effectiveKind = kindLocked
-    ? filters.kind
-    : selectedKinds.size === 1
-      ? [...selectedKinds][0]
-      : null
+  const hasMismatch = selectedKinds.size > 1
+  const effectiveKind =
+    selectedKinds.size === 1 ? [...selectedKinds][0] : null
 
   const eligibleCategories =
     effectiveKind != null
@@ -71,19 +58,11 @@ export function BulkAssignCategoryDialog({
     setBusy(true)
     const catId = categoryId === "none" ? null : Number(categoryId)
     try {
-      if (mode === "selection") {
-        const res = await bulkAssignCategory({
-          transaction_ids: selectedTxs.map((t) => t.id),
-          category_id: catId,
-        })
-        reportResult(res.updated_count, res.skipped_transfers.length, res.skipped_kinds.length)
-      } else {
-        const res = await assignCategoryByFilters({
-          filters,
-          category_id: catId,
-        })
-        toast.success(`${res.updated_count} transacciones actualizadas`)
-      }
+      const res = await bulkAssignCategory({
+        transaction_ids: selectedTxs.map((t) => t.id),
+        category_id: catId,
+      })
+      reportResult(res.updated_count, res.skipped_transfers.length, res.skipped_kinds.length)
       onDone()
       onOpenChange(false)
     } catch (err) {
@@ -102,8 +81,7 @@ export function BulkAssignCategoryDialog({
     toast.success(parts.join(" · "))
   }
 
-  const targetCount =
-    mode === "selection" ? selectedTxs.length : filteredCount
+  const targetCount = selectedTxs.length
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -111,9 +89,7 @@ export function BulkAssignCategoryDialog({
         <DialogHeader>
           <DialogTitle>Asignar categoría</DialogTitle>
           <DialogDescription>
-            {mode === "selection"
-              ? `Se aplicará a ${selectedTxs.length} transacciones seleccionadas.`
-              : `Se aplicará a los ${filteredCount} movimientos que coincidan con los filtros actuales.`}
+            Se aplicará a {selectedTxs.length} transacciones seleccionadas.
           </DialogDescription>
         </DialogHeader>
 

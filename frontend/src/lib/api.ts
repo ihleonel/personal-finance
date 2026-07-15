@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AssignByFiltersInput, AssignByFiltersResult, AuthSession, AuthTokens, BulkAssignCategoryInput, BulkAssignCategoryResult, Category, CategoryInput, CategorySummary, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, DetectTransfersInput, DetectTransfersResult, ImportTransactionResult, IncomeExpenseSummary, LinkTransferInput, PaginatedResponse, ProfileInput, ReportFilters, SuggestCategoryResult, SuggestTransferResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferDetectionRule, TransferDetectionRuleInput, TransferDetectionRuleUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, BulkAssignCategoryInput, BulkAssignCategoryResult, Category, CategoryInput, CategorySummary, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, DetectTransfersInput, DetectTransfersResult, ImportTransactionResult, IncomeExpenseSummary, LinkTransferInput, PaginatedResponse, ProfileInput, ReportFilters, SuggestCategoryResult, SuggestTransferResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferDetectionRule, TransferDetectionRuleInput, TransferDetectionRuleUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -303,28 +303,6 @@ export async function bulkAssignCategory(
   return api.post<BulkAssignCategoryResult>(
     "/transactions/bulk-assign-category/",
     input,
-  )
-}
-
-export async function assignCategoryByFilters(
-  input: AssignByFiltersInput,
-): Promise<AssignByFiltersResult> {
-  const body: Record<string, unknown> = {
-    category_id: input.category_id,
-  }
-  const f = input.filters
-  if (f.account_id != null) body.account_id = f.account_id
-  if (f.kind) body.kind = f.kind
-  if (f.category_id != null) body.category_id_filter = f.category_id
-  if (f.category_id_isnull) body.category_id_isnull = true
-  if (f.transfer_group_id_isnull != null)
-    body.transfer_group_id_isnull = f.transfer_group_id_isnull
-  if (f.date_from) body.date_from = f.date_from
-  if (f.date_to) body.date_to = f.date_to
-  if (f.description) body.description = f.description
-  return api.post<AssignByFiltersResult>(
-    "/transactions/assign-by-filters/",
-    body,
   )
 }
 

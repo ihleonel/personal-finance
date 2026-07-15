@@ -234,52 +234,6 @@ class DjangoTransactionRepository(TransactionRepository):
                 skipped_transfers=list(transfers),
             )
 
-    def assign_category_by_filters(
-        self,
-        owner_id: int,
-        filters,
-        category_id: Optional[int],
-        expected_kind: Optional[str],
-    ) -> int:
-        qs = TransactionORM.objects.filter(owner_id=owner_id)
-        if filters.account_id is not None:
-            qs = qs.filter(account_id=filters.account_id)
-        if filters.kind is not None:
-            qs = qs.filter(kind=filters.kind)
-        if filters.category_id_isnull:
-            qs = qs.filter(category_id__isnull=True)
-        elif filters.category_id is not None:
-            qs = qs.filter(category_id=filters.category_id)
-        if filters.transfer_group_id_isnull is True:
-            qs = qs.filter(transfer_group_id__isnull=True)
-        elif filters.transfer_group_id_isnull is False:
-            qs = qs.filter(transfer_group_id__isnull=False)
-        if filters.date_from is not None:
-            qs = qs.filter(date__gte=filters.date_from)
-        if filters.date_to is not None:
-            qs = qs.filter(date__lte=filters.date_to)
-
-        qs = qs.filter(transfer_group_id__isnull=True)
-        if expected_kind is not None:
-            qs = qs.filter(kind=expected_kind)
-
-        matching_ids = list(qs.values_list("pk", flat=True))
-        if filters.description:
-            needle = normalize_description(filters.description)
-            if needle:
-                orms = qs.only("pk", "description").iterator()
-                matching_ids = [
-                    o.pk
-                    for o in orms
-                    if needle in normalize_description(o.description or "")
-                ]
-
-        if not matching_ids:
-            return 0
-        return TransactionORM.objects.filter(pk__in=matching_ids).update(
-            category_id=category_id
-        )
-
     @staticmethod
     def _to_entity(orm: TransactionORM) -> Transaction:
         return Transaction(

@@ -104,28 +104,6 @@ class TransactionRepository(ABC):
         expected_kind: Optional[str],
     ) -> "BulkAssignCategoryResult": ...
 
-    @abstractmethod
-    def assign_category_by_filters(
-        self,
-        owner_id: int,
-        filters: "ListTransactionsFiltersLike",
-        category_id: Optional[int],
-        expected_kind: Optional[str],
-    ) -> int: ...
-
-
-class ListTransactionsFiltersLike(ABC):
-    """Structural protocol for filters accepted by assign_category_by_filters."""
-
-    account_id: Optional[int]
-    kind: Optional[str]
-    category_id: Optional[int]
-    category_id_isnull: bool
-    transfer_group_id_isnull: Optional[bool]
-    date_from: Optional[date]
-    date_to: Optional[date]
-    description: Optional[str]
-
 
 @dataclass
 class BulkAssignCategoryResult:

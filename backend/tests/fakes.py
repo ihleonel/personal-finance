@@ -522,34 +522,6 @@ class InMemoryTransactionRepository:
             skipped_transfers=skipped_transfers,
         )
 
-    def assign_category_by_filters(
-        self,
-        owner_id: int,
-        filters,
-        category_id: Optional[int],
-        expected_kind: Optional[str],
-    ) -> int:
-        matching = self.list_by_owner(
-            owner_id=owner_id,
-            account_id=filters.account_id,
-            kind=filters.kind,
-            category_id=filters.category_id,
-            category_id_isnull=filters.category_id_isnull,
-            transfer_group_id_isnull=filters.transfer_group_id_isnull,
-            date_from=filters.date_from,
-            date_to=filters.date_to,
-            description=filters.description,
-        )
-        updated = 0
-        for tx in matching:
-            if tx.transfer_group_id is not None:
-                continue
-            if expected_kind is not None and tx.kind != expected_kind:
-                continue
-            self._by_id[tx.id] = replace(tx, category_id=category_id)
-            updated += 1
-        return updated
-
     def seed(
         self,
         owner_id: int,

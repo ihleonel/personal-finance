@@ -19,7 +19,6 @@ from modules.categorization_rules.infrastructure.repositories import (
 )
 from modules.shared.application.result import ValidationError
 from modules.transactions.application.dtos import (
-    AssignCategoryByFiltersInput,
     BulkAssignCategoryInput,
     CreateTransactionInput,
     CreateTransferInput,
@@ -61,13 +60,9 @@ from modules.transactions.application.use_cases.update_transaction import (
 from modules.transactions.application.use_cases.bulk_assign_category import (
     BulkAssignCategoryUseCase,
 )
-from modules.transactions.application.use_cases.assign_category_by_filters import (
-    AssignCategoryByFiltersUseCase,
-)
 
 from .repositories import DjangoTransactionRepository
 from .serializers import (
-    AssignCategoryByFiltersSerializer,
     BulkAssignCategorySerializer,
     CreateTransactionSerializer,
     CreateTransferSerializer,
@@ -356,36 +351,6 @@ class TransactionBulkAssignCategoryView(APIView):
                 owner_id=request.user.id,
                 transaction_ids=serializer.validated_data["transaction_ids"],
                 category_id=serializer.validated_data.get("category_id"),
-            )
-        )
-
-        if not result.is_success:
-            return Response(
-                _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response(_output_to_dict(result.value), status=status.HTTP_200_OK)
-
-
-class TransactionAssignByFiltersView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request: Request) -> Response:
-        serializer = AssignCategoryByFiltersSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        filters = ListTransactionsFilters(**serializer.to_filters())
-        use_case = AssignCategoryByFiltersUseCase(
-            repository=_repository(),
-            category_repository=_category_repository(),
-        )
-        result = use_case.execute(
-            AssignCategoryByFiltersInput(
-                owner_id=request.user.id,
-                filters=filters,
-                category_id=serializer.validated_data.get("category_id"),
-                dry_run=serializer.validated_data.get("dry_run", False),
             )
         )
 
