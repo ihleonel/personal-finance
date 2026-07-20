@@ -48,7 +48,7 @@ describe('Registro', () => {
     cy.get('input[autocomplete=new-password]').eq(1).type('Password1')
     cy.contains('button', 'Crear cuenta').click()
     cy.url({ timeout: 10000 }).should('not.include', '/register')
-    cy.contains('h1', /Bienvenido/i)
+    cy.contains('h1', /Dashboard/i)
   })
 
   it('usuario authed no puede acceder a /login (redirige a /)', () => {

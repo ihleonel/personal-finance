@@ -39,7 +39,8 @@ Cypress.Commands.add('loginAs', (email: string, password: string) => {
     })
     .then((res) => {
       const body = res.body as { user: AuthUser; tokens: AuthTokens }
-      cy.setAuthTokens(body.tokens).then(() => body)
+      cy.setAuthTokens(body.tokens)
+      return cy.wrap(body)
     })
 })
 

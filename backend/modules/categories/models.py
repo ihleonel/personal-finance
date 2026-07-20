@@ -16,6 +16,7 @@ class Category(models.Model):
     )
     name = models.CharField(max_length=100)
     kind = models.CharField(max_length=10, choices=Kind.choices)
+    include_in_summaries = models.BooleanField(default=True)
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

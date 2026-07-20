@@ -18,24 +18,6 @@ class CreateTransactionInput:
 
 
 @dataclass(frozen=True)
-class CreateTransferInput:
-    owner_id: int
-    source_account_id: int
-    destination_account_id: int
-    amount: str
-    date: str
-    description: str = ""
-    category_id: Optional[int] = None
-
-
-@dataclass(frozen=True)
-class LinkTransferInput:
-    owner_id: int
-    source_id: int
-    destination_id: int
-
-
-@dataclass(frozen=True)
 class UpdateTransactionInput:
     amount: Optional[str] = None
     date: Optional[str] = None
@@ -53,16 +35,9 @@ class ListTransactionsFilters:
     kind: Optional[str] = None
     category_id: Optional[int] = None
     category_id_isnull: bool = False
-    transfer_group_id_isnull: Optional[bool] = None
     date_from: Optional[str] = None
     date_to: Optional[str] = None
     description: Optional[str] = None
-
-
-@dataclass(frozen=True)
-class TransferPairRef:
-    source_id: int
-    destination_id: int
 
 
 @dataclass(frozen=True)
@@ -75,17 +50,8 @@ class TransactionOutput:
     amount: str
     date: str
     description: str
-    transfer_group_id: Optional[str]
     created_at: str
     suggested_category_id: Optional[int] = None
-    suggested_is_transfer: bool = False
-    suggested_transfer_pair: Optional[TransferPairRef] = None
-
-
-@dataclass(frozen=True)
-class TransferOutput:
-    source: TransactionOutput
-    destination: TransactionOutput
 
 
 @dataclass(frozen=True)
@@ -139,4 +105,3 @@ class BulkAssignCategoryOutput:
     updated_count: int
     skipped_ids: list[int]
     skipped_kinds: list[int]
-    skipped_transfers: list[int]

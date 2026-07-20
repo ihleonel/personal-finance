@@ -31,6 +31,7 @@ class GetCategoryUseCase:
                 owner_id=category.owner_id,
                 name=category.name,
                 kind=category.kind,
+                include_in_summaries=category.include_in_summaries,
                 is_active=category.is_active,
             )
         )

@@ -6,12 +6,10 @@ the application layer can be tested in isolation.
 
 from __future__ import annotations
 
-import uuid
 from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
 
 from modules.accounts.domain.entities import Account
 from modules.accounts.domain.repositories import AccountRepository
@@ -30,11 +28,6 @@ from modules.transactions.domain.entities import Transaction
 from modules.transactions.domain.repositories import (
     BulkAssignCategoryResult,
     TransactionRepository,
-)
-from modules.transfer_detection.application.ports import TransactionQueryPort
-from modules.transfer_detection.domain.entities import TransferDetectionRule
-from modules.transfer_detection.domain.repositories import (
-    TransferDetectionRuleRepository,
 )
 
 
@@ -234,7 +227,7 @@ class InMemoryCategoryRepository:
     _by_id: dict[int, Category] = field(default_factory=dict)
     _next_id: int = field(default=1)
 
-    def save(self, owner_id: int, name: str, kind: str) -> Category:
+    def save(self, owner_id: int, name: str, kind: str, include_in_summaries: bool = True) -> Category:
         category_id = self._next_id
         self._next_id += 1
         category = Category(
@@ -242,6 +235,7 @@ class InMemoryCategoryRepository:
             owner_id=owner_id,
             name=name,
             kind=kind,
+            include_in_summaries=include_in_summaries,
             is_active=True,
         )
         self._by_id[category_id] = category
@@ -258,12 +252,14 @@ class InMemoryCategoryRepository:
         category_id: int,
         name: Optional[str] = None,
         kind: Optional[str] = None,
+        include_in_summaries: Optional[bool] = None,
     ) -> Category:
         current = self._by_id[category_id]
         updated = replace(
             current,
             name=name if name is not None else current.name,
             kind=kind if kind is not None else current.kind,
+            include_in_summaries=include_in_summaries if include_in_summaries is not None else current.include_in_summaries,
         )
         self._by_id[category_id] = updated
         return updated
@@ -291,6 +287,7 @@ class InMemoryCategoryRepository:
         owner_id: int,
         name: str,
         kind: str = "expense",
+        include_in_summaries: bool = True,
         is_active: bool = True,
     ) -> Category:
         category_id = self._next_id
@@ -300,6 +297,7 @@ class InMemoryCategoryRepository:
             owner_id=owner_id,
             name=name,
             kind=kind,
+            include_in_summaries=include_in_summaries,
             is_active=is_active,
         )
         self._by_id[category_id] = category
@@ -322,7 +320,6 @@ class InMemoryTransactionRepository:
         amount: Decimal,
         date: date,
         description: str,
-        transfer_group_id: Optional[UUID],
         source: str = "",
         external_reference: str = "",
     ) -> Transaction:
@@ -337,7 +334,6 @@ class InMemoryTransactionRepository:
             amount=amount.quantize(Decimal("0.01")),
             date=date,
             description=description,
-            transfer_group_id=transfer_group_id,
             source=source,
             external_reference=external_reference,
         )
@@ -379,7 +375,6 @@ class InMemoryTransactionRepository:
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
         category_id_isnull: bool = False,
-        transfer_group_id_isnull: Optional[bool] = None,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
         description: Optional[str] = None,
@@ -394,10 +389,6 @@ class InMemoryTransactionRepository:
             result = [t for t in result if t.category_id is None]
         elif category_id is not None:
             result = [t for t in result if t.category_id == category_id]
-        if transfer_group_id_isnull is True:
-            result = [t for t in result if t.transfer_group_id is None]
-        elif transfer_group_id_isnull is False:
-            result = [t for t in result if t.transfer_group_id is not None]
         if date_from is not None:
             result = [t for t in result if t.date >= date_from]
         if date_to is not None:
@@ -434,61 +425,6 @@ class InMemoryTransactionRepository:
     def delete(self, transaction_id: int) -> None:
         self._by_id.pop(transaction_id, None)
 
-    def delete_transfer_group(self, transfer_group_id: UUID) -> None:
-        to_remove = [
-            tid for tid, t in self._by_id.items()
-            if t.transfer_group_id == transfer_group_id
-        ]
-        for tid in to_remove:
-            self._by_id.pop(tid, None)
-
-    def create_transfer(
-        self,
-        owner_id: int,
-        source_account_id: int,
-        destination_account_id: int,
-        amount: Decimal,
-        date: date,
-        description: str,
-        category_id: Optional[int],
-    ) -> tuple[Transaction, Transaction]:
-        group_id = uuid.uuid4()
-        source_tx = self.save(
-            owner_id=owner_id,
-            account_id=source_account_id,
-            category_id=category_id,
-            kind="expense",
-            amount=amount,
-            date=date,
-            description=description,
-            transfer_group_id=group_id,
-        )
-        destination_tx = self.save(
-            owner_id=owner_id,
-            account_id=destination_account_id,
-            category_id=category_id,
-            kind="income",
-            amount=amount,
-            date=date,
-            description=description,
-            transfer_group_id=group_id,
-        )
-        return source_tx, destination_tx
-
-    def link_transfer(
-        self,
-        source_id: int,
-        destination_id: int,
-        transfer_group_id: UUID,
-    ) -> tuple[Transaction, Transaction]:
-        source = self._by_id[source_id]
-        destination = self._by_id[destination_id]
-        self._by_id[source_id] = replace(source, transfer_group_id=transfer_group_id)
-        self._by_id[destination_id] = replace(
-            destination, transfer_group_id=transfer_group_id
-        )
-        return self._by_id[source_id], self._by_id[destination_id]
-
     def bulk_assign_category(
         self,
         owner_id: int,
@@ -498,16 +434,12 @@ class InMemoryTransactionRepository:
     ) -> BulkAssignCategoryResult:
         skipped_ids: list[int] = []
         skipped_kinds: list[int] = []
-        skipped_transfers: list[int] = []
         updated_count = 0
 
         for tid in transaction_ids:
             tx = self._by_id.get(tid)
             if tx is None or tx.owner_id != owner_id:
                 skipped_ids.append(tid)
-                continue
-            if tx.transfer_group_id is not None:
-                skipped_transfers.append(tid)
                 continue
             if expected_kind is not None and tx.kind != expected_kind:
                 skipped_kinds.append(tid)
@@ -519,7 +451,6 @@ class InMemoryTransactionRepository:
             updated_count=updated_count,
             skipped_ids=skipped_ids,
             skipped_kinds=skipped_kinds,
-            skipped_transfers=skipped_transfers,
         )
 
     def seed(
@@ -531,7 +462,6 @@ class InMemoryTransactionRepository:
         date: date,
         category_id: Optional[int] = None,
         description: str = "",
-        transfer_group_id: Optional[UUID] = None,
         source: str = "",
         external_reference: str = "",
     ) -> Transaction:
@@ -546,7 +476,6 @@ class InMemoryTransactionRepository:
             amount=amount.quantize(Decimal("0.01")),
             date=date,
             description=description,
-            transfer_group_id=transfer_group_id,
             source=source,
             external_reference=external_reference,
         )
@@ -697,139 +626,4 @@ class FakeCategoryNameResolver:
         return category.name
 
 
-@dataclass
-class InMemoryTransferDetectionRuleRepository:
-    """Implements modules.transfer_detection.domain.repositories.TransferDetectionRuleRepository in memory."""
 
-    _by_id: dict[int, TransferDetectionRule] = field(default_factory=dict)
-    _next_id: int = field(default=1)
-
-    def save(
-        self,
-        owner_id: int,
-        pattern: str,
-        match_type: str,
-        priority: int,
-    ) -> TransferDetectionRule:
-        rule_id = self._next_id
-        self._next_id += 1
-        rule = TransferDetectionRule(
-            id=rule_id,
-            owner_id=owner_id,
-            pattern=pattern,
-            match_type=match_type,
-            priority=priority,
-            is_active=True,
-        )
-        self._by_id[rule_id] = rule
-        return rule
-
-    def find_by_id(self, rule_id: int) -> Optional[TransferDetectionRule]:
-        return self._by_id.get(rule_id)
-
-    def list_by_owner(self, owner_id: int) -> list[TransferDetectionRule]:
-        rules = [r for r in self._by_id.values() if r.owner_id == owner_id]
-        rules.sort(key=lambda r: (r.priority, r.created_at), reverse=True)
-        return rules
-
-    def list_active_by_owner(self, owner_id: int) -> list[TransferDetectionRule]:
-        rules = [
-            r for r in self._by_id.values()
-            if r.owner_id == owner_id and r.is_active
-        ]
-        rules.sort(key=lambda r: (r.priority, r.created_at), reverse=True)
-        return rules
-
-    def update(
-        self,
-        rule_id: int,
-        pattern: Optional[str] = None,
-        match_type: Optional[str] = None,
-        priority: Optional[int] = None,
-    ) -> TransferDetectionRule:
-        current = self._by_id[rule_id]
-        updated = replace(
-            current,
-            pattern=pattern if pattern is not None else current.pattern,
-            match_type=match_type if match_type is not None else current.match_type,
-            priority=priority if priority is not None else current.priority,
-        )
-        self._by_id[rule_id] = updated
-        return updated
-
-    def deactivate(self, rule_id: int) -> TransferDetectionRule:
-        current = self._by_id[rule_id]
-        updated = replace(current, is_active=False)
-        self._by_id[rule_id] = updated
-        return updated
-
-    def activate(self, rule_id: int) -> TransferDetectionRule:
-        current = self._by_id[rule_id]
-        updated = replace(current, is_active=True)
-        self._by_id[rule_id] = updated
-        return updated
-
-    def delete(self, rule_id: int) -> None:
-        self._by_id.pop(rule_id, None)
-
-    def exists_active_duplicate_for_owner(
-        self,
-        owner_id: int,
-        pattern: str,
-        match_type: str,
-        exclude_id: Optional[int] = None,
-    ) -> bool:
-        return any(
-            r.owner_id == owner_id
-            and r.pattern == pattern
-            and r.match_type == match_type
-            and r.is_active
-            and r.id != exclude_id
-            for r in self._by_id.values()
-        )
-
-    def seed(
-        self,
-        owner_id: int,
-        pattern: str,
-        match_type: str = "contains",
-        priority: int = 0,
-        is_active: bool = True,
-    ) -> TransferDetectionRule:
-        rule_id = self._next_id
-        self._next_id += 1
-        rule = TransferDetectionRule(
-            id=rule_id,
-            owner_id=owner_id,
-            pattern=pattern,
-            match_type=match_type,
-            priority=priority,
-            is_active=is_active,
-        )
-        self._by_id[rule_id] = rule
-        return rule
-
-
-@dataclass
-class FakeTransactionQueryPort:
-    """Implements modules.transfer_detection.application.ports.TransactionQueryPort.
-
-    Backed by an InMemoryTransactionRepository to list unlinked transactions.
-    """
-
-    transaction_repository: InMemoryTransactionRepository
-
-    def list_unlinked_by_owner(
-        self,
-        owner_id: int,
-        account_id: Optional[int] = None,
-        date_from: Optional[date] = None,
-        date_to: Optional[date] = None,
-    ) -> list[Transaction]:
-        return self.transaction_repository.list_by_owner(
-            owner_id=owner_id,
-            account_id=account_id,
-            transfer_group_id_isnull=True,
-            date_from=date_from,
-            date_to=date_to,
-        )

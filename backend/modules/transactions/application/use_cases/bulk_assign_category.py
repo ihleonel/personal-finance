@@ -69,17 +69,6 @@ class BulkAssignCategoryUseCase:
                         )
                     ),
                 )
-            elif bulk.skipped_transfers:
-                result.add_error(
-                    "non_field_errors",
-                    "transactions.bulk.all_transfers",
-                    str(
-                        _(
-                            "Todas las transacciones seleccionadas pertenecen a "
-                            "transferencias y no pueden categorizarse."
-                        )
-                    ),
-                )
             else:
                 result.add_error(
                     "non_field_errors",
@@ -93,6 +82,5 @@ class BulkAssignCategoryUseCase:
                 updated_count=bulk.updated_count,
                 skipped_ids=bulk.skipped_ids,
                 skipped_kinds=bulk.skipped_kinds,
-                skipped_transfers=bulk.skipped_transfers,
             )
         )

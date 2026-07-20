@@ -63,14 +63,13 @@ class TestGetAccountBalanceUseCase(unittest.TestCase):
         dest = self.account_repo.seed(
             owner_id=1, name="Banco", initial_balance=Decimal("0.00")
         )
-        self.tx_repo.create_transfer(
-            owner_id=1,
-            source_account_id=source.id,
-            destination_account_id=dest.id,
-            amount=Decimal("400"),
-            date=date(2026, 6, 1),
-            description="transfer",
-            category_id=None,
+        self.tx_repo.seed(
+            owner_id=1, account_id=source.id, kind="expense",
+            amount=Decimal("400"), date=date(2026, 6, 1), description="transfer out",
+        )
+        self.tx_repo.seed(
+            owner_id=1, account_id=dest.id, kind="income",
+            amount=Decimal("400"), date=date(2026, 6, 1), description="transfer in",
         )
         result_source = self.use_case.execute(owner_id=1, account_id=source.id)
         result_dest = self.use_case.execute(owner_id=1, account_id=dest.id)

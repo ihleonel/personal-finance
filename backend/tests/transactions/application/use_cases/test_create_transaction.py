@@ -59,7 +59,6 @@ class TestCreateTransactionUseCase(unittest.TestCase):
         self.assertEqual(out.amount, "1000.00")
         self.assertEqual(out.date, "2026-01-15")
         self.assertEqual(out.description, "Salario")
-        self.assertIsNone(out.transfer_group_id)
         self.assertIsNone(out.category_id)
 
     def test_creates_expense_transaction(self) -> None:

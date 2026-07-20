@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { ArrowRightLeft, ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Receipt, Search, Tags, Trash2, Upload, X } from "lucide-react"
+import { ChevronLeft, ChevronRight, Loader2, Pencil, Plus, Receipt, Tags, Trash2, Upload, X } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
@@ -29,8 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { TransactionFormDialog } from "@/components/transactions/TransactionFormDialog"
-import { TransferFormDialog } from "@/components/transactions/TransferFormDialog"
-import { DetectTransfersDialog } from "@/components/transactions/DetectTransfersDialog"
 import { ImportTransactionsDialog } from "@/components/transactions/ImportTransactionsDialog"
 import { CategoryCell } from "@/components/transactions/CategoryCell"
 import { BulkAssignCategoryDialog } from "@/components/transactions/BulkAssignCategoryDialog"
@@ -40,7 +38,6 @@ import {
   type Category,
   type Transaction,
   type TransactionFilters,
-  type TransferOutput,
 } from "@/lib/schemas"
 
 const PAGE_SIZE = 30
@@ -63,8 +60,6 @@ export function TransactionsPage() {
   const [count, setCount] = useState(0)
   const [txDialogOpen, setTxDialogOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
-  const [transferDialogOpen, setTransferDialogOpen] = useState(false)
-  const [detectDialogOpen, setDetectDialogOpen] = useState(false)
   const [importDialogOpen, setImportDialogOpen] = useState(false)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [selected, setSelected] = useState<Set<number>>(new Set())
@@ -147,36 +142,6 @@ export function TransactionsPage() {
     })
   }
 
-  function handleTransferSaved(transfer: TransferOutput) {
-    if (page > 1) {
-      setLoading(true)
-      fetchTransactions(filters, page)
-        .then((data) => {
-          setTransactions(data.results)
-          setCount(data.count)
-          setError(null)
-        })
-        .catch((err: unknown) => {
-          setError(
-            err instanceof Error ? err.message : "No pudimos cargar tus transacciones",
-          )
-        })
-        .finally(() => setLoading(false))
-      return
-    }
-    setTransactions((prev) => [transfer.source, transfer.destination, ...prev])
-  }
-
-  function handleLinked(transfer: TransferOutput) {
-    setTransactions((prev) => {
-      return prev.map((tx) => {
-        if (tx.id === transfer.source.id) return transfer.source
-        if (tx.id === transfer.destination.id) return transfer.destination
-        return tx
-      })
-    })
-  }
-
   function handleImported() {
     setLoading(true)
     fetchTransactions(filters, page)
@@ -194,19 +159,12 @@ export function TransactionsPage() {
   }
 
   async function handleDelete(id: number) {
-    const target = transactions.find((t) => t.id === id)
-    const groupId = target?.transfer_group_id ?? null
     try {
       await deleteTransaction(id)
-      setTransactions((prev) => {
-        if (groupId != null) {
-          return prev.filter((t) => t.transfer_group_id !== groupId)
-        }
-        return prev.filter((t) => t.id !== id)
-      })
-      setCount((prev) => prev - (groupId != null ? 2 : 1))
+      setTransactions((prev) => prev.filter((t) => t.id !== id))
+      setCount((prev) => prev - 1)
       setPage((prevPage) => {
-        const remaining = transactions.length - (groupId != null ? 2 : 1)
+        const remaining = transactions.length - 1
         if (prevPage > 1 && remaining === 0) {
           return prevPage - 1
         }
@@ -239,20 +197,19 @@ export function TransactionsPage() {
     setFilters({})
   }
 
-  const selectableTxs = transactions.filter((t) => t.transfer_group_id == null)
   const allSelectableSelected =
-    selectableTxs.length > 0 &&
-    selectableTxs.every((t) => selected.has(t.id))
+    transactions.length > 0 &&
+    transactions.every((t) => selected.has(t.id))
   const someSelectableSelected =
-    selectableTxs.some((t) => selected.has(t.id)) && !allSelectableSelected
+    transactions.some((t) => selected.has(t.id)) && !allSelectableSelected
 
   function toggleSelectAll() {
     setSelected((prev) => {
       const next = new Set(prev)
       if (allSelectableSelected) {
-        for (const t of selectableTxs) next.delete(t.id)
+        for (const t of transactions) next.delete(t.id)
       } else {
-        for (const t of selectableTxs) next.add(t.id)
+        for (const t of transactions) next.add(t.id)
       }
       return next
     })
@@ -290,6 +247,11 @@ export function TransactionsPage() {
 
   const accountName = (id: number) =>
     accounts.find((a) => a.id === id)?.name ?? "—"
+  const categoryIsBalanceMovement = (categoryId: number | null) => {
+    if (categoryId == null) return false
+    const cat = categories.find((c) => c.id === categoryId)
+    return cat != null && !cat.include_in_summaries
+  }
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE))
 
   return (
@@ -302,14 +264,6 @@ export function TransactionsPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setTransferDialogOpen(true)}>
-            <ArrowRightLeft />
-            Nueva transferencia
-          </Button>
-          <Button variant="outline" onClick={() => setDetectDialogOpen(true)}>
-            <Search />
-            Detectar transferencias
-          </Button>
           <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
             <Upload />
             Importar
@@ -534,22 +488,18 @@ export function TransactionsPage() {
               </TableHeader>
               <TableBody>
                 {transactions.map((tx) => {
-                  const isTransfer = tx.transfer_group_id != null
                   const isConfirming = confirmingId === tx.id
                   const isSelected = selected.has(tx.id)
                   const signedAmount = tx.kind === "income" ? `+${formatAmount(tx.amount)}` : `−${formatAmount(tx.amount)}`
-                  const amountColor = isTransfer
-                    ? "text-foreground"
-                    : tx.kind === "income"
-                      ? "text-secondary-foreground"
-                      : "text-destructive"
+                  const amountColor = tx.kind === "income"
+                    ? "text-secondary-foreground"
+                    : "text-destructive"
                   return (
                     <TableRow key={tx.id} data-selected={isSelected}>
                       <TableCell>
                         <Checkbox
                           checked={isSelected}
                           onCheckedChange={() => toggleSelect(tx.id)}
-                          disabled={isTransfer}
                           aria-label="Seleccionar transacción"
                           data-testid={`bulk-select-${tx.id}`}
                         />
@@ -569,17 +519,9 @@ export function TransactionsPage() {
                         />
                       </TableCell>
                       <TableCell>
-                        {isTransfer ? (
-                          <span className="inline-flex items-center rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                            Transferencia
-                          </span>
-                        ) : tx.suggested_is_transfer ? (
-                          <span
-                            className="inline-flex items-center rounded-full border border-dashed border-amber-500/60 bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400"
-                            data-testid={`tx-transfer-suggestion-${tx.id}`}
-                            title="La descripción coincide con una regla de detección de transferencias"
-                          >
-                            ¿Transferencia?
+                        {categoryIsBalanceMovement(tx.category_id) ? (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            Mov. patrimonial
                           </span>
                         ) : (
                           <span
@@ -619,16 +561,14 @@ export function TransactionsPage() {
                           </div>
                         ) : (
                           <div className="flex items-center justify-end gap-1">
-                            {!isTransfer ? (
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                onClick={() => handleEditTx(tx)}
-                                aria-label="Editar transacción"
-                              >
-                                <Pencil />
-                              </Button>
-                            ) : null}
+                            <Button
+                              variant="ghost"
+                              size="icon-sm"
+                              onClick={() => handleEditTx(tx)}
+                              aria-label="Editar transacción"
+                            >
+                              <Pencil />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon-sm"
@@ -686,20 +626,6 @@ export function TransactionsPage() {
         accounts={accounts}
         categories={categories}
         onSaved={handleTxSaved}
-      />
-
-      <TransferFormDialog
-        open={transferDialogOpen}
-        onOpenChange={setTransferDialogOpen}
-        accounts={accounts}
-        onSaved={handleTransferSaved}
-      />
-
-      <DetectTransfersDialog
-        open={detectDialogOpen}
-        onOpenChange={setDetectDialogOpen}
-        accounts={accounts}
-        onLinked={handleLinked}
       />
 
       <ImportTransactionsDialog

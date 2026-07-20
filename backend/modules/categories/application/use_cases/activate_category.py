@@ -40,6 +40,7 @@ class ActivateCategoryUseCase:
                 owner_id=activated.owner_id,
                 name=activated.name,
                 kind=activated.kind,
+                include_in_summaries=activated.include_in_summaries,
                 is_active=activated.is_active,
             )
         )

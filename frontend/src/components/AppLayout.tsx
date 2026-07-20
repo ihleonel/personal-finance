@@ -5,9 +5,9 @@ import { cn } from "@/lib/utils"
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/transactions", label: "Transacciones", icon: ArrowRightLeft, end: false },
   { to: "/accounts", label: "Cuentas", icon: Wallet, end: false },
   { to: "/categories", label: "Categorías", icon: Tags, end: false },
-  { to: "/transactions", label: "Transacciones", icon: ArrowRightLeft, end: false },
 ]
 
 export function AppLayout() {

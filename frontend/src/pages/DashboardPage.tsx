@@ -164,7 +164,7 @@ export function DashboardPage() {
     filters.periods_count === 1
       ? PERIOD_LABEL_SINGULAR[filters.period]
       : PERIOD_LABEL_PLURAL[filters.period]
-  const description = `Últimos ${filters.periods_count} ${periodLabel} (excluye transferencias entre cuentas)`
+  const description = `Últimos ${filters.periods_count} ${periodLabel} (excluye transferencias y movimientos patrimoniales)`
 
   const catPeriodLabel =
     catFilters.periods_count === 1

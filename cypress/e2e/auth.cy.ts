@@ -36,7 +36,7 @@ describe('Login', () => {
     cy.loginAsFixture('primary').then(() => {
       cy.visit('/')
       cy.url().should('not.include', '/login')
-      cy.contains('h1', /Bienvenido/i)
+      cy.contains('h1', /Dashboard/i)
     })
   })
 })

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import unittest
-import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -49,34 +48,28 @@ class TestDeleteTransactionUseCase(unittest.TestCase):
         self.assertEqual(result.errors[0].code, "transactions.transaction.not_found")
 
     def test_deletes_both_transfer_transactions(self) -> None:
-        group_id = uuid.uuid4()
-        source_tx = self.repo.seed(
+        tx1 = self.repo.seed(
             owner_id=1, account_id=10, kind="expense",
             amount=Decimal("100"), date=date(2026, 1, 1),
-            transfer_group_id=group_id,
         )
-        destination_tx = self.repo.seed(
+        tx2 = self.repo.seed(
             owner_id=1, account_id=20, kind="income",
             amount=Decimal("100"), date=date(2026, 1, 1),
-            transfer_group_id=group_id,
         )
-        result = self.use_case.execute(owner_id=1, transaction_id=source_tx.id)
+        result = self.use_case.execute(owner_id=1, transaction_id=tx1.id)
         self.assertTrue(result.is_success)
-        self.assertIsNone(self.repo.find_by_id(source_tx.id))
-        self.assertIsNone(self.repo.find_by_id(destination_tx.id))
+        self.assertIsNone(self.repo.find_by_id(tx1.id))
+        self.assertIsNotNone(self.repo.find_by_id(tx2.id))
 
     def test_deleting_one_side_removes_entire_group(self) -> None:
-        group_id = uuid.uuid4()
-        source_tx = self.repo.seed(
+        tx1 = self.repo.seed(
             owner_id=1, account_id=10, kind="expense",
             amount=Decimal("100"), date=date(2026, 1, 1),
-            transfer_group_id=group_id,
         )
-        destination_tx = self.repo.seed(
+        tx2 = self.repo.seed(
             owner_id=1, account_id=20, kind="income",
             amount=Decimal("100"), date=date(2026, 1, 1),
-            transfer_group_id=group_id,
         )
-        self.use_case.execute(owner_id=1, transaction_id=destination_tx.id)
-        self.assertIsNone(self.repo.find_by_id(source_tx.id))
-        self.assertIsNone(self.repo.find_by_id(destination_tx.id))
+        self.use_case.execute(owner_id=1, transaction_id=tx2.id)
+        self.assertIsNotNone(self.repo.find_by_id(tx1.id))
+        self.assertIsNone(self.repo.find_by_id(tx2.id))

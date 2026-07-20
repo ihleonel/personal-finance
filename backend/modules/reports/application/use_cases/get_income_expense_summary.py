@@ -8,6 +8,7 @@ from typing import Optional
 from django.utils.translation import gettext_lazy as _
 
 from modules.accounts.domain.repositories import AccountRepository
+from modules.categories.domain.repositories import CategoryRepository
 from modules.reports.application.dtos import (
     CurrentPeriodOutput,
     IncomeExpenseSummaryInput,
@@ -27,6 +28,7 @@ _ZERO = period_utils.ZERO
 class GetIncomeExpenseSummaryUseCase:
     repository: TransactionRepository
     account_repository: Optional[AccountRepository] = None
+    category_repository: Optional[CategoryRepository] = None
 
     def execute(self, data: IncomeExpenseSummaryInput) -> Result[IncomeExpenseSummaryOutput]:
         result = Result[IncomeExpenseSummaryOutput]()
@@ -55,48 +57,74 @@ class GetIncomeExpenseSummaryUseCase:
         txs = self.repository.list_by_owner(
             owner_id=data.owner_id,
             account_id=data.account_id,
-            transfer_group_id_isnull=True,
             date_from=complete_from,
             date_to=today,
         )
 
+        # Build category inclusion map
+        cats_by_id: dict[int, bool] = {}
+        if self.category_repository is not None:
+            cats = self.category_repository.list_by_owner(data.owner_id)
+            cats_by_id = {c.id: c.include_in_summaries for c in cats}
+
+        def _in_summaries(category_id: Optional[int]) -> bool:
+            if category_id is None:
+                return True
+            return cats_by_id.get(category_id, True)
+
         buckets_map: dict[str, dict[str, Decimal]] = {}
+        bal_map: dict[str, dict[str, Decimal]] = {}
         buckets_order: list[str] = []
         for i in range(data.periods_count):
             start = period_utils.add_periods(data.period, complete_from, i)
             key, label = period_utils.bucket_key_and_label(data.period, start)
             buckets_map[key] = {"income": _ZERO, "expense": _ZERO}
+            bal_map[key] = {"inflow": _ZERO, "outflow": _ZERO}
             buckets_order.append(key)
 
         current_key, current_label = period_utils.bucket_key_and_label(data.period, current_start)
         current_acc: dict[str, Decimal] = {"income": _ZERO, "expense": _ZERO}
+        current_bal: dict[str, Decimal] = {"inflow": _ZERO, "outflow": _ZERO}
 
         for tx in txs:
             key = period_utils.tx_bucket_key(data.period, tx.date)
             if key == current_key:
                 target = current_acc
+                bal_target = current_bal
             elif key in buckets_map:
                 target = buckets_map[key]
+                bal_target = bal_map[key]
             else:
                 continue
-            if tx.kind == "income":
-                target["income"] += tx.amount
-            elif tx.kind == "expense":
-                target["expense"] += tx.amount
+
+            if _in_summaries(tx.category_id):
+                if tx.kind == "income":
+                    target["income"] += tx.amount
+                elif tx.kind == "expense":
+                    target["expense"] += tx.amount
+            else:
+                if tx.kind == "income":
+                    bal_target["inflow"] += tx.amount
+                elif tx.kind == "expense":
+                    bal_target["outflow"] += tx.amount
 
         buckets_out: list[PeriodBucketOutput] = []
         for key in buckets_order:
             acc = buckets_map[key]
-            income = period_utils.fmt(acc["income"])
-            expense = period_utils.fmt(acc["expense"])
+            bal = bal_map[key]
             label = period_utils.label_for_key(data.period, key)
+            bal_inflow = bal["inflow"]
+            bal_outflow = bal["outflow"]
             buckets_out.append(
                 PeriodBucketOutput(
                     key=key,
                     label=label,
-                    income=income,
-                    expense=expense,
+                    income=period_utils.fmt(acc["income"]),
+                    expense=period_utils.fmt(acc["expense"]),
                     net=period_utils.fmt(acc["income"] - acc["expense"]),
+                    balance_movement_inflow=period_utils.fmt(bal_inflow),
+                    balance_movement_outflow=period_utils.fmt(bal_outflow),
+                    balance_movement_net=period_utils.fmt(bal_inflow - bal_outflow),
                 )
             )
 
@@ -112,6 +140,9 @@ class GetIncomeExpenseSummaryUseCase:
             is_partial=True,
             days_elapsed=days_elapsed,
             days_total=days_total,
+            balance_movement_inflow=period_utils.fmt(current_bal["inflow"]),
+            balance_movement_outflow=period_utils.fmt(current_bal["outflow"]),
+            balance_movement_net=period_utils.fmt(current_bal["inflow"] - current_bal["outflow"]),
         )
 
         accumulated_amounts = self._compute_accumulated(

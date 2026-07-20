@@ -54,7 +54,6 @@ class GetCategorySummaryUseCase:
         txs = self.repository.list_by_owner(
             owner_id=data.owner_id,
             account_id=data.account_id,
-            transfer_group_id_isnull=True,
             date_from=complete_from,
             date_to=today,
         )
@@ -65,14 +64,18 @@ class GetCategorySummaryUseCase:
             else []
         )
 
-        # All categories grouped by kind, ordered by name. Includes inactive ones.
-        cats_by_id: dict[int, object] = {c.id: c for c in categories}
+        # Exclude categories marked as balance movements (include_in_summaries=False)
+        excluded_category_ids: set[int] = {
+            c.id for c in categories if not c.include_in_summaries
+        }
+
+        # All categories grouped by kind, ordered by name. Excludes patrimonial ones.
         income_cats = sorted(
-            [c for c in categories if c.kind == "income"],
+            [c for c in categories if c.kind == "income" and c.include_in_summaries],
             key=lambda c: _sort_key(c.name),
         )
         expense_cats = sorted(
-            [c for c in categories if c.kind == "expense"],
+            [c for c in categories if c.kind == "expense" and c.include_in_summaries],
             key=lambda c: _sort_key(c.name),
         )
 
@@ -98,6 +101,8 @@ class GetCategorySummaryUseCase:
             return amounts[key]
 
         for tx in txs:
+            if tx.category_id in excluded_category_ids:
+                continue
             bucket_key = period_utils.tx_bucket_key(data.period, tx.date)
             idx = key_to_index.get(bucket_key)
             if idx is None:
@@ -142,6 +147,7 @@ class GetCategorySummaryUseCase:
                 kind=kind,
                 is_uncategorized=False,
                 is_active=cat.is_active,
+                include_in_summaries=cat.include_in_summaries,
                 amounts=[period_utils.fmt(v) for v in slot],
             )
 
@@ -180,7 +186,6 @@ class GetCategorySummaryUseCase:
         previous_txs = self.repository.list_by_owner(
             owner_id=data.owner_id,
             account_id=data.account_id,
-            transfer_group_id_isnull=True,
             date_to=complete_from - timedelta(days=1),
         )
         initial_balance = period_utils.ZERO
@@ -189,6 +194,8 @@ class GetCategorySummaryUseCase:
                 self.account_repository, data.owner_id, data.account_id
             )
         for tx in previous_txs:
+            if tx.category_id in excluded_category_ids:
+                continue
             initial_balance += tx.amount if tx.kind == "income" else -tx.amount
         accumulated_amounts: list[Decimal] = []
         running = initial_balance

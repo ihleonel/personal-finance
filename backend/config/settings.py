@@ -45,7 +45,6 @@ INSTALLED_APPS = [
     'modules.accounts',
     'modules.categories',
     'modules.categorization_rules',
-    'modules.transfer_detection',
     'modules.transactions',
     'modules.reports',
     'rest_framework_simplejwt',

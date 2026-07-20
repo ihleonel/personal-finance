@@ -21,12 +21,17 @@ class CreateCategorySerializer(serializers.Serializer):
             "null": "El tipo de categoría es obligatorio.",
         },
     )
+    include_in_summaries = serializers.BooleanField(
+        required=False,
+        default=True,
+    )
 
     def to_dto(self) -> dict:
         data = self.validated_data
         return {
             "name": data["name"],
             "kind": data["kind"],
+            "include_in_summaries": data.get("include_in_summaries", True),
         }
 
 
@@ -49,6 +54,11 @@ class UpdateCategorySerializer(serializers.Serializer):
             "null": "El tipo de categoría no puede ser nulo.",
         },
     )
+    include_in_summaries = serializers.BooleanField(
+        required=False,
+        allow_null=True,
+        default=None,
+    )
 
     def validate(self, attrs):
         if not attrs:
@@ -64,4 +74,6 @@ class UpdateCategorySerializer(serializers.Serializer):
             out["name"] = data["name"]
         if "kind" in data:
             out["kind"] = data["kind"]
+        if "include_in_summaries" in data and data["include_in_summaries"] is not None:
+            out["include_in_summaries"] = data["include_in_summaries"]
         return out

@@ -5,7 +5,6 @@ from __future__ import annotations
 import unittest
 from datetime import date, timedelta
 from decimal import Decimal
-from uuid import uuid4
 
 from django.utils import translation
 
@@ -112,15 +111,13 @@ class TestGetIncomeExpenseSummaryUseCase(unittest.TestCase):
         self.assertEqual(out.current_period.income, "500.00")
 
     def test_excludes_transfer_transactions(self) -> None:
-        group = uuid4()
-        # Transfer expense 2 months back (should be excluded).
+        # Expense 2 months back (counts now, transfer filtering removed).
         self.tx_repo.seed(
             owner_id=self.owner_id,
             account_id=self.account_a,
             kind="expense",
             amount=Decimal("2000.00"),
             date=self._months_ago_date(2),
-            transfer_group_id=group,
         )
         # Normal income 2 months back (counted).
         self._seed(self._months_ago_date(2), "income", "1000.00")
@@ -138,7 +135,7 @@ class TestGetIncomeExpenseSummaryUseCase(unittest.TestCase):
         all_income = sum(Decimal(b.income) for b in out.buckets) + Decimal(
             out.current_period.income
         )
-        self.assertEqual(all_expense, Decimal("0.00"))
+        self.assertEqual(all_expense, Decimal("2000.00"))
         self.assertEqual(all_income, Decimal("1000.00"))
 
     def test_account_filter_only_sums_that_account(self) -> None:
@@ -390,15 +387,16 @@ class TestIncomeExpenseAccumulated(unittest.TestCase):
         dest = self.account_repo.seed(
             owner_id=1, name="Banco", initial_balance=Decimal("0.00")
         )
-        # Transfer before the window (3 months back) from source to dest
-        self.tx_repo.create_transfer(
-            owner_id=1,
-            source_account_id=source.id,
-            destination_account_id=dest.id,
-            amount=Decimal("400"),
-            date=self._months_ago_date(3),
-            description="transfer",
-            category_id=None,
+        # Expense from source and income to dest before the window
+        self.tx_repo.seed(
+            owner_id=1, account_id=source.id, kind="expense",
+            amount=Decimal("400"), date=self._months_ago_date(3),
+            description="transfer out",
+        )
+        self.tx_repo.seed(
+            owner_id=1, account_id=dest.id, kind="income",
+            amount=Decimal("400"), date=self._months_ago_date(3),
+            description="transfer in",
         )
 
         result = self.use_case.execute(
@@ -409,7 +407,7 @@ class TestIncomeExpenseAccumulated(unittest.TestCase):
         )
         self.assertTrue(result.is_success)
         out = result.value
-        # dest initial_balance = 0, prior transfer income = +400 -> initial 400
+        # dest initial_balance = 0, prior income = +400 -> initial 400
         # no movements in window -> all 400
         for amt in out.accumulated:
             self.assertEqual(amt, "400.00")

@@ -11,6 +11,7 @@ class Category:
     owner_id: int
     name: str
     kind: str
+    include_in_summaries: bool = True
     is_active: bool = True
     created_at: datetime = field(default_factory=datetime.utcnow)
     updated_at: datetime = field(default_factory=datetime.utcnow)

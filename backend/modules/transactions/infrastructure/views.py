@@ -21,26 +21,11 @@ from modules.shared.application.result import ValidationError
 from modules.transactions.application.dtos import (
     BulkAssignCategoryInput,
     CreateTransactionInput,
-    CreateTransferInput,
-    LinkTransferInput,
     ListTransactionsFilters,
     UpdateTransactionInput,
 )
-from modules.transfer_detection.application.detector import (
-    TransferCandidateDetector,
-    TransferPairMatcher,
-)
-from modules.transfer_detection.infrastructure.repositories import (
-    DjangoTransferDetectionRuleRepository,
-)
 from modules.transactions.application.use_cases.create_transaction import (
     CreateTransactionUseCase,
-)
-from modules.transactions.application.use_cases.create_transfer import (
-    CreateTransferUseCase,
-)
-from modules.transactions.application.use_cases.link_transfer import (
-    LinkTransferUseCase,
 )
 from modules.transactions.application.use_cases.delete_transaction import (
     DeleteTransactionUseCase,
@@ -65,8 +50,6 @@ from .repositories import DjangoTransactionRepository
 from .serializers import (
     BulkAssignCategorySerializer,
     CreateTransactionSerializer,
-    CreateTransferSerializer,
-    LinkTransferSerializer,
     ListTransactionsQuerySerializer,
     UpdateTransactionSerializer,
 )
@@ -91,18 +74,6 @@ def _rule_repository() -> DjangoCategorizationRuleRepository:
 
 def _suggestion_service() -> CategorySuggestionService:
     return CategorySuggestionService()
-
-
-def _transfer_rule_repository() -> DjangoTransferDetectionRuleRepository:
-    return DjangoTransferDetectionRuleRepository()
-
-
-def _transfer_candidate_detector() -> TransferCandidateDetector:
-    return TransferCandidateDetector()
-
-
-def _transfer_pair_matcher() -> TransferPairMatcher:
-    return TransferPairMatcher()
 
 
 def _errors_to_drf(errors: list[ValidationError]) -> dict:
@@ -181,57 +152,6 @@ class TransactionListCreateView(APIView):
         return Response(
             _output_to_dict(result.value), status=status.HTTP_201_CREATED
         )
-
-
-class TransferCreateView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request: Request) -> Response:
-        serializer = CreateTransferSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        use_case = CreateTransferUseCase(
-            repository=_repository(),
-            account_repository=_account_repository(),
-        )
-        result = use_case.execute(
-            CreateTransferInput(owner_id=request.user.id, **serializer.to_dto())
-        )
-
-        if not result.is_success:
-            return Response(
-                _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response(_output_to_dict(result.value), status=status.HTTP_201_CREATED)
-
-
-class TransferLinkView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request: Request) -> Response:
-        serializer = LinkTransferSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-        use_case = LinkTransferUseCase(repository=_repository())
-        result = use_case.execute(
-            LinkTransferInput(owner_id=request.user.id, **serializer.to_dto())
-        )
-
-        if not result.is_success:
-            code = result.errors[0].code if result.errors else ""
-            if code == "transactions.transfer.not_found":
-                return Response(
-                    {"detail": result.errors[0].message, "code": code},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            return Response(
-                _errors_to_drf(result.errors), status=status.HTTP_400_BAD_REQUEST
-            )
-
-        return Response(_output_to_dict(result.value), status=status.HTTP_200_OK)
 
 
 class TransactionDetailView(APIView):
@@ -314,9 +234,6 @@ class TransactionImportView(APIView):
             account_repository=_account_repository(),
             rule_repository=_rule_repository(),
             suggestion_service=_suggestion_service(),
-            transfer_rule_repository=_transfer_rule_repository(),
-            transfer_candidate_detector=_transfer_candidate_detector(),
-            transfer_pair_matcher=_transfer_pair_matcher(),
         )
         result = use_case.execute(
             owner_id=request.user.id,

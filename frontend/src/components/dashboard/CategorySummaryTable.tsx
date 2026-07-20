@@ -22,7 +22,9 @@ export function CategorySummaryTable({ summary }: CategorySummaryTableProps) {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="sticky left-0 bg-background">Categoría</TableHead>
+                  <TableHead className="sticky left-0 bg-background">
+                    Categoría
+                  </TableHead>
             {cols.map((c) => (
               <TableHead key={c.key} className="text-right whitespace-nowrap">
                 {c.label}
@@ -46,8 +48,12 @@ export function CategorySummaryTable({ summary }: CategorySummaryTableProps) {
             summary.rows.map((row) => {
               const isIncome = row.kind === "income"
               const muted = row.is_uncategorized || !row.is_active
+              const isBalanceMovement = !row.is_uncategorized && row.include_in_summaries === false
               return (
-                <TableRow key={`${row.kind}-${row.category_id ?? "none"}`}>
+                <TableRow
+                  key={`${row.kind}-${row.category_id ?? "none"}`}
+                  data-balance-movement={isBalanceMovement || undefined}
+                >
                   <TableCell className="sticky left-0 bg-background">
                     <div className="flex items-center gap-2">
                       {isIncome ? (
@@ -58,6 +64,11 @@ export function CategorySummaryTable({ summary }: CategorySummaryTableProps) {
                       <span className={muted ? "italic text-muted-foreground" : ""}>
                         {row.name}
                       </span>
+                      {isBalanceMovement ? (
+                        <span className="inline-flex items-center rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                          Patrimonial
+                        </span>
+                      ) : null}
                       {!row.is_active && !row.is_uncategorized ? (
                         <span className="text-xs text-muted-foreground">(inactiva)</span>
                       ) : null}

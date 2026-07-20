@@ -1,4 +1,4 @@
-import type { Account, AccountInput, AuthSession, AuthTokens, BulkAssignCategoryInput, BulkAssignCategoryResult, Category, CategoryInput, CategorySummary, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, DetectTransfersInput, DetectTransfersResult, ImportTransactionResult, IncomeExpenseSummary, LinkTransferInput, PaginatedResponse, ProfileInput, ReportFilters, SuggestCategoryResult, SuggestTransferResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput, TransferDetectionRule, TransferDetectionRuleInput, TransferDetectionRuleUpdateInput, TransferInput, TransferOutput } from "@/lib/schemas"
+import type { Account, AccountInput, AuthSession, AuthTokens, BulkAssignCategoryInput, BulkAssignCategoryResult, Category, CategoryInput, CategorySummary, CategorizationRule, CategorizationRuleInput, CategorizationRuleUpdateInput, ImportTransactionResult, IncomeExpenseSummary, PaginatedResponse, ProfileInput, ReportFilters, SuggestCategoryResult, Transaction, TransactionFilters, TransactionInput, TransactionUpdateInput } from "@/lib/schemas"
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "@/auth/storage"
 
 export class ApiError extends Error {
@@ -182,7 +182,11 @@ export async function updateCategory(
   id: number,
   input: Partial<CategoryInput>,
 ): Promise<Category> {
-  return api.patch<Category>(`/categories/${id}/`, input)
+  const body: Record<string, unknown> = { ...input }
+  if (input.include_in_summaries !== undefined) {
+    body.include_in_summaries = input.include_in_summaries
+  }
+  return api.patch<Category>(`/categories/${id}/`, body)
 }
 
 export async function deactivateCategory(id: number): Promise<Category> {
@@ -274,16 +278,6 @@ export async function deleteTransaction(id: number): Promise<void> {
   await api.del<void>(`/transactions/${id}/`)
 }
 
-export async function createTransfer(
-  input: TransferInput,
-): Promise<TransferOutput> {
-  return api.post<TransferOutput>("/transactions/transfer/", input)
-}
-
-export async function linkTransfer(input: LinkTransferInput): Promise<TransferOutput> {
-  return api.post<TransferOutput>("/transactions/transfer/link/", input)
-}
-
 export async function importTransactions(
   file: File,
   accountId: number,
@@ -304,53 +298,6 @@ export async function bulkAssignCategory(
     "/transactions/bulk-assign-category/",
     input,
   )
-}
-
-export async function fetchTransferDetectionRules(): Promise<TransferDetectionRule[]> {
-  return api.get<TransferDetectionRule[]>("/transfer-detection/")
-}
-
-export async function createTransferDetectionRule(
-  input: TransferDetectionRuleInput,
-): Promise<TransferDetectionRule> {
-  return api.post<TransferDetectionRule>("/transfer-detection/", input)
-}
-
-export async function updateTransferDetectionRule(
-  id: number,
-  input: TransferDetectionRuleUpdateInput,
-): Promise<TransferDetectionRule> {
-  return api.patch<TransferDetectionRule>(`/transfer-detection/${id}/`, input)
-}
-
-export async function deleteTransferDetectionRule(id: number): Promise<void> {
-  await api.del<void>(`/transfer-detection/${id}/`)
-}
-
-export async function deactivateTransferDetectionRule(
-  id: number,
-): Promise<TransferDetectionRule> {
-  return api.post<TransferDetectionRule>(`/transfer-detection/${id}/deactivate/`, {})
-}
-
-export async function activateTransferDetectionRule(
-  id: number,
-): Promise<TransferDetectionRule> {
-  return api.post<TransferDetectionRule>(`/transfer-detection/${id}/activate/`, {})
-}
-
-export async function suggestTransfer(
-  description: string,
-): Promise<SuggestTransferResult> {
-  return api.post<SuggestTransferResult>("/transfer-detection/suggest/", {
-    description,
-  })
-}
-
-export async function detectTransfers(
-  input: DetectTransfersInput,
-): Promise<DetectTransfersResult> {
-  return api.post<DetectTransfersResult>("/transfer-detection/detect/", input)
 }
 
 export async function fetchIncomeExpenseSummary(

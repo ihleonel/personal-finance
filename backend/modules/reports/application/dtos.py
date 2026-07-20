@@ -19,6 +19,9 @@ class PeriodBucketOutput:
     income: str
     expense: str
     net: str
+    balance_movement_inflow: str = "0.00"
+    balance_movement_outflow: str = "0.00"
+    balance_movement_net: str = "0.00"
 
 
 @dataclass(frozen=True)
@@ -31,6 +34,9 @@ class CurrentPeriodOutput:
     is_partial: bool
     days_elapsed: int
     days_total: int
+    balance_movement_inflow: str = "0.00"
+    balance_movement_outflow: str = "0.00"
+    balance_movement_net: str = "0.00"
 
 
 @dataclass(frozen=True)
@@ -67,6 +73,7 @@ class CategoryRowOutput:
     is_uncategorized: bool
     is_active: bool
     amounts: list[str]
+    include_in_summaries: bool = True
 
 
 @dataclass(frozen=True)

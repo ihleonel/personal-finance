@@ -5,7 +5,6 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
 
 from modules.shared.domain.optional import UNSET
 
@@ -25,7 +24,6 @@ class TransactionRepository(ABC):
         amount: Decimal,
         date: date,
         description: str,
-        transfer_group_id: Optional[UUID],
         source: str = "",
         external_reference: str = "",
     ) -> Transaction: ...
@@ -53,7 +51,6 @@ class TransactionRepository(ABC):
         kind: Optional[str] = None,
         category_id: Optional[int] = None,
         category_id_isnull: bool = False,
-        transfer_group_id_isnull: Optional[bool] = None,
         date_from: Optional[date] = None,
         date_to: Optional[date] = None,
         description: Optional[str] = None,
@@ -73,29 +70,6 @@ class TransactionRepository(ABC):
     def delete(self, transaction_id: int) -> None: ...
 
     @abstractmethod
-    def delete_transfer_group(self, transfer_group_id: UUID) -> None: ...
-
-    @abstractmethod
-    def create_transfer(
-        self,
-        owner_id: int,
-        source_account_id: int,
-        destination_account_id: int,
-        amount: Decimal,
-        date: date,
-        description: str,
-        category_id: Optional[int],
-    ) -> tuple[Transaction, Transaction]: ...
-
-    @abstractmethod
-    def link_transfer(
-        self,
-        source_id: int,
-        destination_id: int,
-        transfer_group_id: UUID,
-    ) -> tuple[Transaction, Transaction]: ...
-
-    @abstractmethod
     def bulk_assign_category(
         self,
         owner_id: int,
@@ -110,4 +84,3 @@ class BulkAssignCategoryResult:
     updated_count: int
     skipped_ids: list[int]
     skipped_kinds: list[int]
-    skipped_transfers: list[int]

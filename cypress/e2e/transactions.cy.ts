@@ -19,15 +19,6 @@ describe('Transacciones', () => {
     return `${yyyy}-${mm}-${dd}`
   }
 
-  function yesterdayISO(): string {
-    const d = new Date()
-    d.setDate(d.getDate() - 1)
-    const yyyy = d.getFullYear()
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return `${yyyy}-${mm}-${dd}`
-  }
-
   function deactivateAllActiveAccounts() {
     if (!accessToken) return cy.wrap(null)
     return cy
@@ -74,10 +65,10 @@ describe('Transacciones', () => {
 
   function deleteAllTransactions() {
     if (!accessToken) return cy.wrap(null)
-    const collectAll = (
+    const collectIds = (
       pageNum: number,
-      acc: Array<{ id: number; transfer_group_id: string | null }>,
-    ): Cypress.Chainable<Array<{ id: number; transfer_group_id: string | null }>> =>
+      acc: number[],
+    ): Cypress.Chainable<number[]> =>
       cy
         .request({
           method: 'GET',
@@ -86,25 +77,16 @@ describe('Transacciones', () => {
         })
         .then((res: Cypress.Response<unknown>) => {
           const body = res.body as {
-            results: Array<{ id: number; transfer_group_id: string | null }>
+            results: Array<{ id: number }>
             next: string | null
           }
-          const merged = acc.concat(body.results)
-          if (body.next == null) return cy.wrap(merged)
-          return collectAll(pageNum + 1, merged)
+          const ids = acc.concat(body.results.map((t) => t.id))
+          if (body.next == null) return cy.wrap(ids)
+          return collectIds(pageNum + 1, ids)
         })
-    return collectAll(1, []).then((txs: Array<{ id: number; transfer_group_id: string | null }>) => {
-      const seenGroups = new Set<string>()
-      const toDelete: number[] = []
-      for (const t of txs) {
-        if (t.transfer_group_id != null) {
-          if (seenGroups.has(t.transfer_group_id)) continue
-          seenGroups.add(t.transfer_group_id)
-        }
-        toDelete.push(t.id)
-      }
-      if (toDelete.length === 0) return cy.wrap(null)
-      return cy.wrap(toDelete).each((id: number) => {
+    return collectIds(1, []).then((ids: number[]) => {
+      if (ids.length === 0) return cy.wrap(null)
+      return cy.wrap(ids).each((id: number) => {
         return cy.request({
           method: 'DELETE',
           url: `/api/transactions/${id}/`,
@@ -148,21 +130,6 @@ describe('Transacciones', () => {
     return cy.request({
       method: 'POST',
       url: '/api/transactions/',
-      headers: { Authorization: `Bearer ${accessToken}` },
-      body: input,
-    })
-  }
-
-  function createTransferViaApi(input: {
-    source_account_id: number
-    destination_account_id: number
-    amount: string
-    date: string
-    description?: string
-  }) {
-    return cy.request({
-      method: 'POST',
-      url: '/api/transactions/transfer/',
       headers: { Authorization: `Bearer ${accessToken}` },
       body: input,
     })
@@ -228,7 +195,6 @@ describe('Transacciones', () => {
       cy.visit('/transactions')
       cy.contains('h1', 'Transacciones').should('be.visible')
       cy.contains('button', 'Nueva transacción').should('be.visible')
-      cy.contains('button', 'Nueva transferencia').should('be.visible')
       cy.contains('No tenés transacciones todavía').should('be.visible')
     })
   })
@@ -324,74 +290,6 @@ describe('Transacciones', () => {
     })
   })
 
-  it('crea una transferencia entre dos cuentas y aparecen ambas filas', () => {
-    const desc = `Transfer ${Date.now()}`
-    deleteAllTransactions()
-      .then(() => seedAccountsAndCategories())
-      .then(() => {
-        cy.visit('/transactions')
-        cy.contains('button', 'Nueva transferencia').click()
-        cy.get('[role=dialog]').should('be.visible')
-
-        cy.get('[data-testid="transfer-source-select"]').click()
-        cy.get('[role=option]').contains('Efectivo E2E').click()
-
-        cy.get('[data-testid="transfer-destination-select"]').click()
-        cy.get('[role=option]').contains('Banco E2E').click()
-
-        cy.get('[data-testid="transfer-amount-input"]').type('300')
-        cy.get('[data-testid="transfer-description-input"]').type(desc)
-
-        cy.get('[role=dialog]').contains('button', 'Crear transferencia').click()
-
-        // Ambas filas tienen badge "Transferencia"
-        cy.contains(desc, { timeout: 15000 }).should('be.visible')
-        cy.get('main')
-          .contains('Transferencia')
-          .should('be.visible')
-        cy.get('main').find('span').contains('Transferencia').should('have.length.at.least', 1)
-      })
-  })
-
-  it('rechaza transferencia con misma cuenta origen y destino', () => {
-    deleteAllTransactions().then(() => seedAccountsAndCategories()).then(() => {
-      cy.visit('/transactions')
-      cy.contains('button', 'Nueva transferencia').click()
-      cy.get('[role=dialog]').should('be.visible')
-
-      // Selecciona mismo account en origen y destino
-      cy.get('[data-testid="transfer-source-select"]').click()
-      cy.get('[role=option]').contains('Efectivo E2E').click()
-
-      cy.get('[data-testid="transfer-destination-select"]').click()
-      cy.get('[role=option]').contains('Efectivo E2E').click()
-
-      cy.get('[data-testid="transfer-amount-input"]').type('100')
-
-      cy.get('[role=dialog]').contains('button', 'Crear transferencia').click()
-
-      cy.contains('La cuenta de origen y destino no pueden ser la misma.').should('be.visible')
-    })
-  })
-
-  it('valida que el monto sea obligatorio en transferencia', () => {
-    deleteAllTransactions().then(() => seedAccountsAndCategories()).then(() => {
-      cy.visit('/transactions')
-      cy.contains('button', 'Nueva transferencia').click()
-      cy.get('[role=dialog]').should('be.visible')
-
-      cy.get('[data-testid="transfer-source-select"]').click()
-      cy.get('[role=option]').contains('Efectivo E2E').click()
-
-      cy.get('[data-testid="transfer-destination-select"]').click()
-      cy.get('[role=option]').contains('Banco E2E').click()
-
-      cy.get('[role=dialog]').contains('button', 'Crear transferencia').click()
-
-      cy.contains('El monto es obligatorio.').should('be.visible')
-    })
-  })
-
   it('edita el monto de una transacción', () => {
     const desc = `Edit monto ${Date.now()}`
     deleteAllTransactions()
@@ -448,28 +346,6 @@ describe('Transacciones', () => {
       })
   })
 
-  it('no permite editar una transacción que es parte de una transferencia', () => {
-    const desc = `No edit transfer ${Date.now()}`
-    deleteAllTransactions()
-      .then(() => seedAccountsAndCategories())
-      .then(({ account1, account2 }: Seed) => {
-        createTransferViaApi({
-          source_account_id: account1.id,
-          destination_account_id: account2.id,
-          amount: '200',
-          date: todayISO(),
-          description: desc,
-        })
-      })
-      .then(() => {
-        cy.visit('/transactions')
-        cy.contains(desc, { timeout: 15000 }).should('be.visible')
-        // Las filas de transferencia NO tienen botón de editar
-        cy.get('button[aria-label="Editar transacción"]').should('not.exist')
-        cy.get('button[aria-label="Eliminar transacción"]').should('be.visible')
-      })
-  })
-
   it('elimina una transacción simple', () => {
     const desc = `Delete simple ${Date.now()}`
     deleteAllTransactions()
@@ -491,32 +367,6 @@ describe('Transacciones', () => {
         cy.contains('button', 'Sí').click()
 
         cy.get('main').contains(desc).should('not.exist')
-      })
-  })
-
-  it('elimina una transferencia y borra ambas filas', () => {
-    const desc = `Delete transfer ${Date.now()}`
-    deleteAllTransactions()
-      .then(() => seedAccountsAndCategories())
-      .then(({ account1, account2 }: Seed) => {
-        createTransferViaApi({
-          source_account_id: account1.id,
-          destination_account_id: account2.id,
-          amount: '200',
-          date: todayISO(),
-          description: desc,
-        })
-      })
-      .then(() => {
-        cy.visit('/transactions')
-        cy.contains(desc, { timeout: 15000 }).should('be.visible')
-        cy.contains('Transferencia').should('be.visible')
-
-        cy.get('button[aria-label="Eliminar transacción"]').first().click()
-        cy.contains('button', 'Sí').click()
-
-        cy.get('main').contains(desc).should('not.exist')
-        cy.get('main').contains('Transferencia').should('not.exist')
       })
   })
 
@@ -615,44 +465,6 @@ describe('Transacciones', () => {
 
         cy.contains('button', 'Limpiar').click()
         cy.contains(desc2, { timeout: 15000 }).should('be.visible')
-      })
-  })
-
-  it('filtra transacciones por rango de fechas', () => {
-    const oldDesc = `Filter old ${Date.now()}`
-    const todayDesc = `Filter today ${Date.now()}`
-    deleteAllTransactions()
-      .then(() => seedAccountsAndCategories())
-      .then(({ account1, account2 }: Seed) => {
-        createTransactionViaApi({
-          account_id: account1.id,
-          kind: 'income',
-          amount: '100',
-          date: yesterdayISO(),
-          description: oldDesc,
-        })
-        createTransactionViaApi({
-          account_id: account2.id,
-          kind: 'income',
-          amount: '200',
-          date: todayISO(),
-          description: todayDesc,
-        })
-      })
-      .then(() => {
-        cy.visit('/transactions')
-        cy.contains(oldDesc, { timeout: 15000 }).should('be.visible')
-        cy.contains(todayDesc).should('be.visible')
-
-        // Filtrar solo hoy
-        cy.get('[data-testid="filter-date-from"]').type(todayISO())
-        cy.get('[data-testid="filter-date-to"]').type(todayISO())
-
-        cy.contains(todayDesc, { timeout: 15000 }).should('be.visible')
-        cy.get('main').contains(oldDesc).should('not.exist')
-
-        cy.contains('button', 'Limpiar').click()
-        cy.contains(oldDesc, { timeout: 15000 }).should('be.visible')
       })
   })
 

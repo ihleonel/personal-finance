@@ -68,92 +68,6 @@ class CreateTransactionSerializer(serializers.Serializer):
         }
 
 
-class CreateTransferSerializer(serializers.Serializer):
-    source_account_id = serializers.IntegerField(
-        error_messages={
-            "required": "La cuenta de origen es obligatoria.",
-            "invalid": "La cuenta de origen no es válida.",
-            "null": "La cuenta de origen es obligatoria.",
-        },
-    )
-    destination_account_id = serializers.IntegerField(
-        error_messages={
-            "required": "La cuenta de destino es obligatoria.",
-            "invalid": "La cuenta de destino no es válida.",
-            "null": "La cuenta de destino es obligatoria.",
-        },
-    )
-    amount = serializers.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        error_messages={
-            "required": "El monto es obligatorio.",
-            "invalid": "El monto debe ser un número válido.",
-            "max_digits": "El monto no puede tener más de 14 dígitos.",
-            "max_decimal_places": "El monto no puede tener más de 2 decimales.",
-            "max_whole_digits": "El monto no puede tener más de 14 dígitos.",
-        },
-    )
-    date = serializers.DateField(
-        error_messages={
-            "required": "La fecha es obligatoria.",
-            "invalid": "La fecha no es válida.",
-            "null": "La fecha es obligatoria.",
-        },
-    )
-    category_id = serializers.IntegerField(
-        required=False,
-        allow_null=True,
-        error_messages={
-            "invalid": "La categoría no es válida.",
-        },
-    )
-    description = serializers.CharField(
-        required=False,
-        allow_blank=True,
-        max_length=255,
-        error_messages={
-            "max_length": "La descripción no puede tener más de 255 caracteres.",
-            "null": "La descripción no puede ser nula.",
-        },
-    )
-
-    def to_dto(self) -> dict:
-        data = self.validated_data
-        return {
-            "source_account_id": data["source_account_id"],
-            "destination_account_id": data["destination_account_id"],
-            "amount": str(data["amount"]),
-            "date": data["date"].isoformat(),
-            "category_id": data.get("category_id"),
-            "description": data.get("description", ""),
-        }
-
-
-class LinkTransferSerializer(serializers.Serializer):
-    source_id = serializers.IntegerField(
-        error_messages={
-            "required": "La transacción de origen es obligatoria.",
-            "invalid": "La transacción de origen no es válida.",
-            "null": "La transacción de origen es obligatoria.",
-        },
-    )
-    destination_id = serializers.IntegerField(
-        error_messages={
-            "required": "La transacción de destino es obligatoria.",
-            "invalid": "La transacción de destino no es válida.",
-            "null": "La transacción de destino es obligatoria.",
-        },
-    )
-
-    def to_dto(self) -> dict:
-        data = self.validated_data
-        return {
-            "source_id": data["source_id"],
-            "destination_id": data["destination_id"],
-        }
-
-
 class UpdateTransactionSerializer(serializers.Serializer):
     amount = serializers.DecimalField(
         max_digits=14,
@@ -236,11 +150,6 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
         required=False,
         default=False,
     )
-    transfer_group_id_isnull = serializers.BooleanField(
-        required=False,
-        allow_null=True,
-        default=None,
-    )
     date_from = serializers.DateField(
         required=False,
         allow_null=True,
@@ -269,9 +178,6 @@ class ListTransactionsQuerySerializer(serializers.Serializer):
                     out[key] = value
         if data.get("category_id_isnull"):
             out["category_id_isnull"] = True
-        transfer_group_isnull = data.get("transfer_group_id_isnull")
-        if transfer_group_isnull is not None:
-            out["transfer_group_id_isnull"] = transfer_group_isnull
         description = data.get("description")
         if description:
             out["description"] = description

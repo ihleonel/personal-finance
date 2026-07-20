@@ -22,7 +22,7 @@ describe('Rutas protegidas', () => {
     cy.loginAsFixture('primary').then(() => {
       cy.visit('/')
       cy.url().should('eq', Cypress.config().baseUrl + '/')
-      cy.contains('h1', /Bienvenido/i)
+      cy.contains('h1', /Dashboard/i)
 
       cy.visit('/profile')
       cy.url().should('include', '/profile')

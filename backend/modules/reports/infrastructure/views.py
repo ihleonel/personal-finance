@@ -47,6 +47,7 @@ class IncomeExpenseSummaryView(APIView):
         use_case = GetIncomeExpenseSummaryUseCase(
             repository=DjangoTransactionRepository(),
             account_repository=DjangoAccountRepository(),
+            category_repository=DjangoCategoryRepository(),
         )
         result = use_case.execute(
             IncomeExpenseSummaryInput(

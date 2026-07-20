@@ -190,6 +190,7 @@ export function CategoriesPage() {
                 <TableRow>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead className="hidden md:table-cell">Resumen</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
@@ -206,6 +207,17 @@ export function CategoriesPage() {
                         {category.name}
                       </TableCell>
                       <TableCell>{kindLabel}</TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {category.include_in_summaries ? (
+                          <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+                            Incluye
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-amber-500/10 px-2.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            Mov. patrimonial
+                          </span>
+                        )}
+                      </TableCell>
                       <TableCell>
                         <span
                           className={

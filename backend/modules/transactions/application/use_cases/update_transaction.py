@@ -47,19 +47,6 @@ class UpdateTransactionUseCase:
             )
             return result
 
-        if tx.transfer_group_id is not None:
-            result.add_error(
-                "non_field_errors",
-                "transactions.transaction.is_transfer",
-                str(
-                    _(
-                        "No se puede editar una transacción que pertenece a una "
-                        "transferencia. Eliminá la transferencia completa y volvé a crearla."
-                    )
-                ),
-            )
-            return result
-
         has_any_field = any(
             getattr(data, f) is not None
             for f in ("amount", "date", "description")
@@ -154,6 +141,5 @@ class UpdateTransactionUseCase:
             amount=str(tx.amount),
             date=tx.date.isoformat() if hasattr(tx.date, "isoformat") else str(tx.date),
             description=tx.description,
-            transfer_group_id=str(tx.transfer_group_id) if tx.transfer_group_id is not None else None,
             created_at=tx.created_at.isoformat() if hasattr(tx.created_at, "isoformat") else str(tx.created_at),
         )

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import unittest
-import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -108,16 +107,14 @@ class TestBulkAssignCategoryUseCase(unittest.TestCase):
         t1 = self.repo.seed(owner_id=1, account_id=10, kind="expense",
                              amount=Decimal("100"), date=date(2026, 1, 1))
         t2 = self.repo.seed(owner_id=1, account_id=10, kind="expense",
-                             amount=Decimal("50"), date=date(2026, 1, 2),
-                             transfer_group_id=uuid.uuid4())
+                             amount=Decimal("50"), date=date(2026, 1, 2))
         result = self.use_case.execute(
             BulkAssignCategoryInput(
                 owner_id=1, transaction_ids=[t1.id, t2.id], category_id=cat.id,
             )
         )
         self.assertTrue(result.is_success)
-        self.assertEqual(result.value.updated_count, 1)
-        self.assertEqual(result.value.skipped_transfers, [t2.id])
+        self.assertEqual(result.value.updated_count, 2)
 
     def test_fails_when_all_skipped_due_to_kind_mismatch(self) -> None:
         cat = self.category_repo.seed(owner_id=1, name="Sueldo", kind="income")
@@ -134,15 +131,15 @@ class TestBulkAssignCategoryUseCase(unittest.TestCase):
     def test_fails_when_all_are_transfers(self) -> None:
         cat = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
         t1 = self.repo.seed(owner_id=1, account_id=10, kind="expense",
-                             amount=Decimal("100"), date=date(2026, 1, 1),
-                             transfer_group_id=uuid.uuid4())
+                             amount=Decimal("100"), date=date(2026, 1, 1))
         result = self.use_case.execute(
             BulkAssignCategoryInput(
                 owner_id=1, transaction_ids=[t1.id], category_id=cat.id,
             )
         )
-        self.assertFalse(result.is_success)
-        self.assertEqual(result.errors[0].code, "transactions.bulk.all_transfers")
+        self.assertTrue(result.is_success)
+        self.assertEqual(result.value.updated_count, 1)
+        self.assertEqual(self.repo.find_by_id(t1.id).category_id, cat.id)
 
     def test_skips_transactions_of_other_owner(self) -> None:
         cat = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")

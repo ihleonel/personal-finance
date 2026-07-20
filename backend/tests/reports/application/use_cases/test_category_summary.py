@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import unittest
-import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -114,8 +113,7 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
         cat = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
         self.repo.seed(owner_id=1, account_id=10, kind="expense",
                        amount=Decimal("100"), date=date(2026, 7, 1),
-                       category_id=cat.id,
-                       transfer_group_id=uuid.uuid4())
+                       category_id=cat.id)
         self.repo.seed(owner_id=1, account_id=10, kind="expense",
                        amount=Decimal("200"), date=date(2026, 7, 2),
                        category_id=cat.id)
@@ -125,8 +123,8 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
         )
         rows = result.value.rows
         food = [r for r in rows if r.name == "Comida"][0]
-        # Only the non-transfer tx counts; current period col is last
-        self.assertEqual(food.amounts[-1], "200.00")
+        # Both transactions count now (transfer filtering removed)
+        self.assertEqual(food.amounts[-1], "300.00")
 
     def test_account_filter_only_sums_that_account(self) -> None:
         cat = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
@@ -316,8 +314,7 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
         cat = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
         self.repo.seed(owner_id=1, account_id=10, kind="expense",
                        amount=Decimal("100"), date=date(2026, 7, 1),
-                       category_id=cat.id,
-                       transfer_group_id=uuid.uuid4())
+                       category_id=cat.id)
         self.repo.seed(owner_id=1, account_id=10, kind="expense",
                        amount=Decimal("200"), date=date(2026, 7, 2),
                        category_id=cat.id)
@@ -325,8 +322,8 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
         result = self.use_case.execute(
             CategorySummaryInput(owner_id=1, period="month", periods_count=1)
         )
-        # Only the non-transfer tx counts: -200 (expense)
-        self.assertEqual(result.value.totals.amounts[-1], "-200.00")
+        # Both transactions count: -300 (expense)
+        self.assertEqual(result.value.totals.amounts[-1], "-300.00")
 
     def test_accumulated_running_balance_includes_previous_periods(self) -> None:
         cat_food = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
@@ -393,11 +390,10 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
 
     def test_accumulated_excludes_transfers(self) -> None:
         cat = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
-        # Previous period transfer (excluded) + real expense
+        # Previous period expenses: 1000 + 200
         self.repo.seed(owner_id=1, account_id=10, kind="expense",
                        amount=Decimal("1000"), date=date(2026, 3, 1),
-                       category_id=cat.id,
-                       transfer_group_id=uuid.uuid4())
+                       category_id=cat.id)
         self.repo.seed(owner_id=1, account_id=10, kind="expense",
                        amount=Decimal("200"), date=date(2026, 3, 2),
                        category_id=cat.id)
@@ -411,10 +407,10 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
             CategorySummaryInput(owner_id=1, period="month", periods_count=3)
         )
         totals = result.value.totals
-        # Initial balance: -200 (transfer excluded)
-        # Jul: -200 + 500 = 300
-        self.assertEqual(totals.accumulated[0], "-200.00")
-        self.assertEqual(totals.accumulated[-1], "300.00")
+        # Initial balance: -1200 (both expenses)
+        # Jul: -1200 + 500 = -700
+        self.assertEqual(totals.accumulated[0], "-1200.00")
+        self.assertEqual(totals.accumulated[-1], "-700.00")
 
     def test_accumulated_account_filter_isolated(self) -> None:
         cat_salary = self.category_repo.seed(owner_id=1, name="Sueldo", kind="income")

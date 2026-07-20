@@ -19,6 +19,7 @@ class ListCategoriesUseCase:
                 owner_id=c.owner_id,
                 name=c.name,
                 kind=c.kind,
+                include_in_summaries=c.include_in_summaries,
                 is_active=c.is_active,
             )
             for c in categories

@@ -59,6 +59,7 @@ class CreateCategoryUseCase:
             owner_id=data.owner_id,
             name=data.name,
             kind=kind.value,  # type: ignore[union-attr]
+            include_in_summaries=data.include_in_summaries,
         )
 
         return Result.ok(self._to_output(saved))
@@ -70,5 +71,6 @@ class CreateCategoryUseCase:
             owner_id=category.owner_id,
             name=category.name,
             kind=category.kind,
+            include_in_summaries=category.include_in_summaries,
             is_active=category.is_active,
         )

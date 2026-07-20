@@ -35,7 +35,7 @@ function SelectTrigger({
       data-slot="select-trigger"
       data-size={size}
       className={cn(
-        "flex w-full items-center justify-between gap-2 rounded-lg bg-transparent px-2.5 py-1 text-sm shadow-sm ring-1 ring-inset ring-input transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 data-[size=default]:h-8 data-[size=sm]:h-7 [&_svg:not([class*='size-'])]:size-4 data-[placeholder]:text-muted-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 *:[svg]:pointer-events-none",
+        "flex w-full min-w-0 items-center justify-between gap-2 rounded-lg bg-transparent px-2.5 py-1 text-sm shadow-sm ring-1 ring-inset ring-input transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-ring/50 data-[size=default]:h-8 data-[size=sm]:h-7 [&_svg:not([class*='size-'])]:size-4 data-[placeholder]:text-muted-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 *:[svg]:pointer-events-none [&_[data-slot=select-value]]:truncate",
         className,
       )}
       {...props}
@@ -115,7 +115,9 @@ function SelectItem({
           <CheckIcon className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      <SelectPrimitive.ItemText>
+        <span className="truncate">{children}</span>
+      </SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
   )
 }

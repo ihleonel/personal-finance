@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import uuid
-
 from django.conf import settings
 from django.db import models
 
@@ -32,7 +30,6 @@ class Transaction(models.Model):
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     date = models.DateField()
     description = models.CharField(max_length=255, blank=True, default="")
-    transfer_group_id = models.UUIDField(null=True, blank=True, db_index=True)
     source = models.CharField(max_length=30, blank=True, default="")
     external_reference = models.CharField(max_length=64, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
@@ -45,13 +42,8 @@ class Transaction(models.Model):
         indexes = [
             models.Index(fields=["owner", "date"]),
             models.Index(fields=["account", "date"]),
-            models.Index(fields=["transfer_group_id"]),
             models.Index(fields=["account", "source", "external_reference"]),
         ]
 
     def __str__(self) -> str:
         return f"{self.kind} {self.amount} ({self.date})"
-
-
-def new_transfer_group_id() -> uuid.UUID:
-    return uuid.uuid4()

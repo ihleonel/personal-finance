@@ -62,7 +62,7 @@ export function BulkAssignCategoryDialog({
         transaction_ids: selectedTxs.map((t) => t.id),
         category_id: catId,
       })
-      reportResult(res.updated_count, res.skipped_transfers.length, res.skipped_kinds.length)
+      reportResult(res.updated_count, res.skipped_kinds.length)
       onDone()
       onOpenChange(false)
     } catch (err) {
@@ -74,9 +74,8 @@ export function BulkAssignCategoryDialog({
     }
   }
 
-  function reportResult(updated: number, transfers: number, kinds: number) {
+  function reportResult(updated: number, kinds: number) {
     const parts = [`${updated} actualizadas`]
-    if (transfers > 0) parts.push(`${transfers} transferencias ignoradas`)
     if (kinds > 0) parts.push(`${kinds} de otro tipo ignoradas`)
     toast.success(parts.join(" · "))
   }

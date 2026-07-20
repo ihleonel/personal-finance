@@ -131,6 +131,7 @@ export const categorySchema = z.object({
     .min(1, "El nombre de la categoría es obligatorio")
     .max(100, "Asegúrate de que el nombre no tenga más de 100 caracteres."),
   kind: z.enum(["income", "expense"]),
+  include_in_summaries: z.boolean().default(true),
 })
 
 export type CategoryInput = z.infer<typeof categorySchema>
@@ -140,6 +141,7 @@ export type Category = {
   owner_id: number
   name: string
   kind: string
+  include_in_summaries: boolean
   is_active: boolean
 }
 
@@ -201,16 +203,8 @@ export type Transaction = {
   amount: string
   date: string
   description: string
-  transfer_group_id: string | null
   created_at: string
   suggested_category_id?: number | null
-  suggested_is_transfer?: boolean
-  suggested_transfer_pair?: TransferPairRef | null
-}
-
-export type TransferPairRef = {
-  source_id: number
-  destination_id: number
 }
 
 export type TransactionFilters = {
@@ -218,7 +212,6 @@ export type TransactionFilters = {
   kind?: string
   category_id?: number
   category_id_isnull?: boolean
-  transfer_group_id_isnull?: boolean
   date_from?: string
   date_to?: string
   description?: string
@@ -243,37 +236,6 @@ export const transactionSchema = z.object({
     .optional(),
 })
 export type TransactionInput = z.infer<typeof transactionSchema>
-
-export const transferSchema = z
-  .object({
-    source_account_id: z.number({
-      error: "La cuenta de origen es obligatoria.",
-    }),
-    destination_account_id: z.number({
-      error: "La cuenta de destino es obligatoria.",
-    }),
-    amount: z.string().min(1, "El monto es obligatorio."),
-    date: z.string().min(1, "La fecha es obligatoria."),
-    description: z
-      .string()
-      .max(255, "La descripción no puede tener más de 255 caracteres.")
-      .optional(),
-  })
-  .refine((d) => d.source_account_id !== d.destination_account_id, {
-    message: "La cuenta de origen y destino no pueden ser la misma.",
-    path: ["destination_account_id"],
-  })
-export type TransferInput = z.infer<typeof transferSchema>
-
-export type TransferOutput = {
-  source: Transaction
-  destination: Transaction
-}
-
-export type LinkTransferInput = {
-  source_id: number
-  destination_id: number
-}
 
 export type ImportSkippedRow = {
   row_number: number
@@ -321,57 +283,6 @@ export type BulkAssignCategoryResult = {
   updated_count: number
   skipped_ids: number[]
   skipped_kinds: number[]
-  skipped_transfers: number[]
-}
-
-export const transferDetectionRuleSchema = z.object({
-  pattern: z
-    .string()
-    .min(1, "El patrón es obligatorio")
-    .max(120, "Asegúrate de que el patrón no tenga más de 120 caracteres."),
-  match_type: z.enum(["contains", "equals"]),
-  priority: z.number().int().min(0, "La prioridad debe ser un número no negativo."),
-})
-
-export type TransferDetectionRuleInput = z.infer<typeof transferDetectionRuleSchema>
-
-export type TransferDetectionRuleUpdateInput = Partial<TransferDetectionRuleInput>
-
-export type TransferDetectionRule = {
-  id: number
-  owner_id: number
-  pattern: string
-  match_type: string
-  priority: number
-  is_active: boolean
-}
-
-export type SuggestTransferResult = {
-  is_transfer: boolean
-}
-
-export type TransferPairSuggestion = {
-  source_id: number
-  destination_id: number
-  amount: string
-  source_account_id: number
-  destination_account_id: number
-  source_date: string
-  destination_date: string
-  score: number
-  matched_by: string
-}
-
-export type DetectTransfersInput = {
-  account_id?: number
-  date_from?: string
-  date_to?: string
-  window_days?: number
-  amount_tolerance?: string
-}
-
-export type DetectTransfersResult = {
-  suggestions: TransferPairSuggestion[]
 }
 
 export const REPORT_PERIODS = [
@@ -409,12 +320,18 @@ export type PeriodBucket = {
   income: string
   expense: string
   net: string
+  balance_movement_inflow?: string
+  balance_movement_outflow?: string
+  balance_movement_net?: string
 }
 
 export type CurrentPeriod = PeriodBucket & {
   is_partial: boolean
   days_elapsed: number
   days_total: number
+  balance_movement_inflow?: string
+  balance_movement_outflow?: string
+  balance_movement_net?: string
 }
 
 export type IncomeExpenseSummary = {
@@ -438,6 +355,7 @@ export type CategoryRow = {
   kind: string
   is_uncategorized: boolean
   is_active: boolean
+  include_in_summaries?: boolean
   amounts: string[]
 }
 

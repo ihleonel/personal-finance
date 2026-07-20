@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Optional
-from uuid import UUID
 
 from django.utils.translation import gettext_lazy as _
 
@@ -104,7 +103,6 @@ class CreateTransactionUseCase:
             amount=amount.value if amount is not None else Decimal("0"),  # type: ignore[union-attr]
             date=parsed_date.value if parsed_date is not None else date.today(),  # type: ignore[union-attr]
             description=data.description,
-            transfer_group_id=None,
         )
 
         return Result.ok(self._to_output(saved))
@@ -120,6 +118,5 @@ class CreateTransactionUseCase:
             amount=str(tx.amount),
             date=tx.date.isoformat() if hasattr(tx.date, "isoformat") else str(tx.date),
             description=tx.description,
-            transfer_group_id=str(tx.transfer_group_id) if tx.transfer_group_id is not None else None,
             created_at=tx.created_at.isoformat() if hasattr(tx.created_at, "isoformat") else str(tx.created_at),
         )

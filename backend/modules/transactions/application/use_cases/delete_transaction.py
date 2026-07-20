@@ -24,9 +24,6 @@ class DeleteTransactionUseCase:
             )
             return result
 
-        if tx.transfer_group_id is not None:
-            self.repository.delete_transfer_group(tx.transfer_group_id)
-        else:
-            self.repository.delete(transaction_id)
+        self.repository.delete(transaction_id)
 
         return Result.ok(True)

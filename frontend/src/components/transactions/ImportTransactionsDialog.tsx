@@ -111,12 +111,6 @@ export function ImportTransactionsDialog({
     onOpenChange(false)
   }
 
-  const transferSuggestions = result
-    ? result.created.filter(
-        (tx) => tx.suggested_is_transfer || tx.suggested_transfer_pair != null,
-      )
-    : []
-
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent>
@@ -198,53 +192,6 @@ export function ImportTransactionsDialog({
               </p>
             ) : null}
 
-            {transferSuggestions.length > 0 ? (
-              <div className="space-y-1.5">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                  Posibles transferencias
-                </p>
-                <div
-                  className="max-h-60 overflow-y-auto rounded-lg border border-amber-500/40"
-                  data-testid="import-transfer-suggestions"
-                >
-                  <ul className="divide-y divide-border">
-                    {transferSuggestions.map((tx) => {
-                      const pair = tx.suggested_transfer_pair
-                      const isSource = pair?.source_id === tx.id
-                      const otherId = isSource
-                        ? pair?.destination_id
-                        : pair?.source_id
-                      return (
-                        <li
-                          key={tx.id}
-                          className="flex items-start gap-2 px-3 py-2 text-sm"
-                        >
-                          <span className="shrink-0 font-medium text-muted-foreground">
-                            {tx.date}
-                          </span>
-                          <span className="flex-1">
-                            {tx.description || "—"}
-                          </span>
-                          {otherId != null ? (
-                            <span className="shrink-0 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-400">
-                              Par #{otherId}
-                            </span>
-                          ) : (
-                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                              Candidata
-                            </span>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Revisá estas transacciones: podrían ser transferencias entre
-                  tus cuentas. Confirmalas desde la lista de transacciones.
-                </p>
-              </div>
-            ) : null}
           </div>
         ) : (
           <div className="space-y-4">

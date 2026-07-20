@@ -9,11 +9,12 @@ from modules.categories.models import Category as CategoryORM
 
 
 class DjangoCategoryRepository(CategoryRepository):
-    def save(self, owner_id: int, name: str, kind: str) -> Category:
+    def save(self, owner_id: int, name: str, kind: str, include_in_summaries: bool = True) -> Category:
         orm = CategoryORM.objects.create(
             owner_id=owner_id,
             name=name,
             kind=kind,
+            include_in_summaries=include_in_summaries,
         )
         return self._to_entity(orm)
 
@@ -33,12 +34,15 @@ class DjangoCategoryRepository(CategoryRepository):
         category_id: int,
         name: Optional[str] = None,
         kind: Optional[str] = None,
+        include_in_summaries: Optional[bool] = None,
     ) -> Category:
         fields: dict[str, object] = {}
         if name is not None:
             fields["name"] = name
         if kind is not None:
             fields["kind"] = kind
+        if include_in_summaries is not None:
+            fields["include_in_summaries"] = include_in_summaries
 
         if fields:
             CategoryORM.objects.filter(pk=category_id).update(**fields)
@@ -65,6 +69,7 @@ class DjangoCategoryRepository(CategoryRepository):
             owner_id=orm.owner_id,
             name=orm.name,
             kind=orm.kind,
+            include_in_summaries=orm.include_in_summaries,
             is_active=orm.is_active,
             created_at=orm.created_at,
             updated_at=orm.updated_at,

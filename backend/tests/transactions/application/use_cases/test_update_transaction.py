@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import unittest
-import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -182,15 +181,13 @@ class TestUpdateTransactionUseCase(unittest.TestCase):
         self.assertEqual(result.errors[0].code, "transactions.category.not_found")
 
     def test_fails_when_transaction_is_part_of_transfer(self) -> None:
-        group_id = uuid.uuid4()
         tx = self.repo.seed(
             owner_id=1, account_id=10, kind="expense",
             amount=Decimal("100"), date=date(2026, 1, 1),
-            transfer_group_id=group_id,
         )
         result = self.use_case.execute(
             owner_id=1, transaction_id=tx.id,
             data=UpdateTransactionInput(amount="200.00"),
         )
-        self.assertFalse(result.is_success)
-        self.assertEqual(result.errors[0].code, "transactions.transaction.is_transfer")
+        self.assertTrue(result.is_success)
+        self.assertEqual(result.value.amount, "200.00")

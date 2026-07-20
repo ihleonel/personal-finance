@@ -38,6 +38,5 @@ class GetTransactionUseCase:
             amount=str(tx.amount),
             date=tx.date.isoformat() if hasattr(tx.date, "isoformat") else str(tx.date),
             description=tx.description,
-            transfer_group_id=str(tx.transfer_group_id) if tx.transfer_group_id is not None else None,
             created_at=tx.created_at.isoformat() if hasattr(tx.created_at, "isoformat") else str(tx.created_at),
         )

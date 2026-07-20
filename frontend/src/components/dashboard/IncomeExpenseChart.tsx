@@ -164,6 +164,7 @@ export function IncomeExpenseChart({ summary }: IncomeExpenseChartProps) {
           />
         </RechartsBarChart>
       </ChartContainer>
+
       <p className="mt-2 text-center text-xs text-muted-foreground">
         Periodo en curso (parcial): {summary.current_period.days_elapsed} de{" "}
         {summary.current_period.days_total} días

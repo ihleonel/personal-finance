@@ -32,7 +32,8 @@ export function formatAmount(amount: string | number): string {
 }
 
 export function formatDate(iso: string): string {
-  const value = new Date(iso)
+  const [y, m, d] = iso.split("-").map(Number)
+  const value = new Date(y, m - 1, d)
   if (Number.isNaN(value.getTime())) return iso
   return new Intl.DateTimeFormat("es-AR", {
     day: "2-digit",

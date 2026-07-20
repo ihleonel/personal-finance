@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   CATEGORY_KINDS,
@@ -60,6 +62,7 @@ export function CategoryFormDialog({
     defaultValues: {
       name: "",
       kind: "expense",
+      include_in_summaries: true,
     },
   })
 
@@ -69,10 +72,12 @@ export function CategoryFormDialog({
       ? {
           name: category.name,
           kind: category.kind as CategoryInput["kind"],
+          include_in_summaries: category.include_in_summaries,
         }
       : {
           name: "",
           kind: "expense" as CategoryInput["kind"],
+          include_in_summaries: true,
         }
     form.reset(initial)
   }, [open, category, form])
@@ -167,6 +172,36 @@ export function CategoryFormDialog({
                     </SelectContent>
                   </Select>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <Separator className="my-2" />
+
+            <FormField
+              control={form.control}
+              name="include_in_summaries"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="cursor-pointer">
+                      Incluir en resúmenes
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Si desactivás esta opción, los movimientos con esta
+                      categoría no se sumarán a los totales de ingresos y egresos
+                      en el dashboard. Usalo para categorías patrimoniales como
+                      ahorro o transferencias.
+                    </p>
+                    <FormMessage />
+                  </div>
                 </FormItem>
               )}
             />

@@ -32,7 +32,6 @@ class ListTransactionsUseCase:
             kind=filters.kind,
             category_id=filters.category_id,
             category_id_isnull=filters.category_id_isnull,
-            transfer_group_id_isnull=filters.transfer_group_id_isnull,
             date_from=date_from,
             date_to=date_to,
             description=filters.description,
@@ -60,6 +59,5 @@ class ListTransactionsUseCase:
             amount=str(tx.amount),
             date=tx.date.isoformat() if hasattr(tx.date, "isoformat") else str(tx.date),
             description=tx.description,
-            transfer_group_id=str(tx.transfer_group_id) if tx.transfer_group_id is not None else None,
             created_at=tx.created_at.isoformat() if hasattr(tx.created_at, "isoformat") else str(tx.created_at),
         )

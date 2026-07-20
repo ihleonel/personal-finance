@@ -40,6 +40,7 @@ class DeactivateCategoryUseCase:
                 owner_id=deactivated.owner_id,
                 name=deactivated.name,
                 kind=deactivated.kind,
+                include_in_summaries=deactivated.include_in_summaries,
                 is_active=deactivated.is_active,
             )
         )

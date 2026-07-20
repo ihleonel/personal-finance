@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 from typing import Optional
-from uuid import UUID
 
 
 _ALLOWED_KINDS = frozenset({"income", "expense"})
@@ -19,10 +18,6 @@ class InvalidTransactionAmountError(ValueError):
 
 
 class InvalidTransactionDateError(ValueError):
-    pass
-
-
-class InvalidTransferGroupIdError(ValueError):
     pass
 
 
@@ -110,31 +105,6 @@ class TransactionDate:
             return cls(candidate)
         except InvalidTransactionDateError:
             return None
-
-
-@dataclass(frozen=True)
-class TransferGroupId:
-    value: UUID
-
-    def __post_init__(self) -> None:
-        if not isinstance(self.value, UUID):
-            raise InvalidTransferGroupIdError(f"Invalid transfer group id: {self.value!r}")
-
-    def __str__(self) -> str:
-        return str(self.value)
-
-    @classmethod
-    def try_parse(cls, raw: object) -> Optional["TransferGroupId"]:
-        if raw is None:
-            return None
-        if isinstance(raw, UUID):
-            return cls(raw)
-        if isinstance(raw, str):
-            try:
-                return cls(UUID(raw))
-            except ValueError:
-                return None
-        return None
 
 
 allowed_kinds = _ALLOWED_KINDS

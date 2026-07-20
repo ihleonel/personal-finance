@@ -41,11 +41,6 @@ export function CategoryCell({ tx, categories, onAssigned }: CategoryCellProps) 
   const [pending, setPending] = useState<number | typeof REMOVE | null>(null)
 
   const current = categories.find((c) => c.id === tx.category_id)
-  const isTransfer = tx.transfer_group_id != null
-
-  if (isTransfer) {
-    return <span className="text-muted-foreground">—</span>
-  }
 
   const suggestedName =
     suggestion?.category_id != null
