@@ -589,3 +589,127 @@ class TestGetCategorySummaryAccumulatedWithInitialBalance(unittest.TestCase):
         totals = result.value.totals
         # initial = 500 (only active) + 400 = 900 (inactive 9999 excluded)
         self.assertEqual(totals.accumulated[0], "900.00")
+
+
+class TestGetCategorySummaryOnlyPatrimonial(unittest.TestCase):
+    def setUp(self) -> None:
+        translation.activate("es")
+        self.repo = InMemoryTransactionRepository()
+        self.category_repo = InMemoryCategoryRepository()
+        self.account_repo = InMemoryAccountRepository()
+        self.use_case = GetCategorySummaryUseCase(
+            repository=self.repo,
+            category_repository=self.category_repo,
+            account_repository=self.account_repo,
+        )
+
+    def tearDown(self) -> None:
+        translation.deactivate_all()
+
+    def _today(self) -> date:
+        return date(2026, 6, 15)
+
+    def test_only_patrimonial_returns_only_patrimonial_categories(self) -> None:
+        cat_food = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
+        cat_capital = self.category_repo.seed(
+            owner_id=1, name="Aporte", kind="income", include_in_summaries=False
+        )
+        cat_loan = self.category_repo.seed(
+            owner_id=1, name="Préstamo", kind="expense", include_in_summaries=False
+        )
+        self.repo.seed(owner_id=1, account_id=10, kind="income",
+                       amount=Decimal("1000"), date=date(2026, 7, 5),
+                       category_id=cat_capital.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("200"), date=date(2026, 7, 8),
+                       category_id=cat_food.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("300"), date=date(2026, 7, 9),
+                       category_id=cat_loan.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 only_patrimonial=True)
+        )
+        self.assertTrue(result.is_success)
+        rows = result.value.rows
+        names = [r.name for r in rows]
+        self.assertEqual(names, ["Aporte", "Préstamo"])
+        self.assertNotIn("Comida", names)
+
+    def test_only_patrimonial_excludes_summary_transactions_from_amounts(self) -> None:
+        cat_food = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
+        cat_capital = self.category_repo.seed(
+            owner_id=1, name="Aporte", kind="income", include_in_summaries=False
+        )
+        self.repo.seed(owner_id=1, account_id=10, kind="income",
+                       amount=Decimal("1000"), date=date(2026, 7, 5),
+                       category_id=cat_capital.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("200"), date=date(2026, 7, 8),
+                       category_id=cat_food.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 only_patrimonial=True)
+        )
+        rows = result.value.rows
+        aporte = [r for r in rows if r.name == "Aporte"][0]
+        # Only the 1000 in Aporte should be counted; Comida's 200 excluded.
+        self.assertEqual(aporte.amounts[-1], "1000.00")
+        self.assertEqual(len(rows), 1)
+
+    def test_only_patrimonial_initial_balance_excludes_summary_txs(self) -> None:
+        cat_salary = self.category_repo.seed(owner_id=1, name="Sueldo", kind="income")
+        cat_capital = self.category_repo.seed(
+            owner_id=1, name="Aporte", kind="income", include_in_summaries=False
+        )
+        account = self.account_repo.seed(
+            owner_id=1, name="Banco", initial_balance=Decimal("100.00")
+        )
+        # Previous period: +500 Sueldo, +1000 Aporte
+        self.repo.seed(owner_id=1, account_id=account.id, kind="income",
+                       amount=Decimal("500"), date=date(2026, 3, 5),
+                       category_id=cat_salary.id)
+        self.repo.seed(owner_id=1, account_id=account.id, kind="income",
+                       amount=Decimal("1000"), date=date(2026, 3, 6),
+                       category_id=cat_capital.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=3,
+                                 only_patrimonial=True)
+        )
+        totals = result.value.totals
+        # initial = 100 (account) + 1000 (only Aporte counted, Sueldo excluded)
+        self.assertEqual(totals.accumulated[0], "1100.00")
+
+    def test_only_patrimonial_with_no_patrimonial_categories_returns_empty_rows(self) -> None:
+        self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
+        self.category_repo.seed(owner_id=1, name="Sueldo", kind="income")
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 only_patrimonial=True)
+        )
+        self.assertTrue(result.is_success)
+        self.assertEqual(result.value.rows, [])
+
+    def test_only_patrimonial_default_excludes_patrimonial(self) -> None:
+        cat_food = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
+        cat_capital = self.category_repo.seed(
+            owner_id=1, name="Aporte", kind="income", include_in_summaries=False
+        )
+        self.repo.seed(owner_id=1, account_id=10, kind="income",
+                       amount=Decimal("1000"), date=date(2026, 7, 5),
+                       category_id=cat_capital.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("200"), date=date(2026, 7, 8),
+                       category_id=cat_food.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1)
+        )
+        rows = result.value.rows
+        names = [r.name for r in rows]
+        self.assertEqual(names, ["Comida"])
+        self.assertNotIn("Aporte", names)

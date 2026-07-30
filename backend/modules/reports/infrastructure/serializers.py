@@ -63,6 +63,13 @@ class CategorySummaryQuerySerializer(serializers.Serializer):
         allow_null=True,
         error_messages={"invalid": "La cuenta no es válida."},
     )
+    only_patrimonial = serializers.BooleanField(
+        required=False,
+        default=False,
+        error_messages={
+            "invalid": "El valor de only_patrimonial no es válido.",
+        },
+    )
 
     def to_dto(self) -> dict:
         data = self.validated_data
@@ -70,4 +77,5 @@ class CategorySummaryQuerySerializer(serializers.Serializer):
             "period": data["period"],
             "periods_count": data["periods_count"],
             "account_id": data.get("account_id"),
+            "only_patrimonial": data.get("only_patrimonial", False),
         }

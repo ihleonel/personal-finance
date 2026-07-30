@@ -64,18 +64,32 @@ class GetCategorySummaryUseCase:
             else []
         )
 
-        # Exclude categories marked as balance movements (include_in_summaries=False)
-        excluded_category_ids: set[int] = {
-            c.id for c in categories if not c.include_in_summaries
-        }
+        if data.only_patrimonial:
+            included_category_ids: set[int] = {
+                c.id for c in categories if not c.include_in_summaries
+            }
+            cat_filter = lambda c: not c.include_in_summaries
 
-        # All categories grouped by kind, ordered by name. Excludes patrimonial ones.
+            def is_tx_included(category_id: Optional[int]) -> bool:
+                return category_id is not None and category_id in included_category_ids
+        else:
+            included_category_ids = {
+                c.id for c in categories if c.include_in_summaries
+            }
+            cat_filter = lambda c: c.include_in_summaries
+
+            def is_tx_included(category_id: Optional[int]) -> bool:
+                return category_id is None or category_id in included_category_ids
+
+        # Categories grouped by kind, ordered by name.
+        # In the default mode this excludes patrimonial ones; with
+        # `only_patrimonial=True` it includes only those.
         income_cats = sorted(
-            [c for c in categories if c.kind == "income" and c.include_in_summaries],
+            [c for c in categories if c.kind == "income" and cat_filter(c)],
             key=lambda c: _sort_key(c.name),
         )
         expense_cats = sorted(
-            [c for c in categories if c.kind == "expense" and c.include_in_summaries],
+            [c for c in categories if c.kind == "expense" and cat_filter(c)],
             key=lambda c: _sort_key(c.name),
         )
 
@@ -101,7 +115,7 @@ class GetCategorySummaryUseCase:
             return amounts[key]
 
         for tx in txs:
-            if tx.category_id in excluded_category_ids:
+            if not is_tx_included(tx.category_id):
                 continue
             bucket_key = period_utils.tx_bucket_key(data.period, tx.date)
             idx = key_to_index.get(bucket_key)
@@ -194,7 +208,7 @@ class GetCategorySummaryUseCase:
                 self.account_repository, data.owner_id, data.account_id
             )
         for tx in previous_txs:
-            if tx.category_id in excluded_category_ids:
+            if not is_tx_included(tx.category_id):
                 continue
             initial_balance += tx.amount if tx.kind == "income" else -tx.amount
         accumulated_amounts: list[Decimal] = []

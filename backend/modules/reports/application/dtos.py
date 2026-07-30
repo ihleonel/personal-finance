@@ -54,6 +54,7 @@ class CategorySummaryInput:
     period: str
     periods_count: int
     account_id: Optional[int] = None
+    only_patrimonial: bool = False
 
 
 @dataclass(frozen=True)
