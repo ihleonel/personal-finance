@@ -313,11 +313,13 @@ export async function fetchIncomeExpenseSummary(
 
 export async function fetchCategorySummary(
   filters: ReportFilters,
+  options?: { onlyPatrimonial?: boolean },
 ): Promise<CategorySummary> {
   const params = new URLSearchParams()
   params.set("period", filters.period)
   params.set("periods_count", String(filters.periods_count))
   if (filters.account_id != null) params.set("account_id", String(filters.account_id))
+  if (options?.onlyPatrimonial) params.set("only_patrimonial", "true")
   const qs = params.toString()
   return api.get<CategorySummary>(`/reports/category-summary/${qs ? `?${qs}` : ""}`)
 }

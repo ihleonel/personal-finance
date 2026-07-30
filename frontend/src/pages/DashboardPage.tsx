@@ -19,6 +19,7 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { IncomeExpenseChart } from "@/components/dashboard/IncomeExpenseChart"
 import { CategorySummaryTable } from "@/components/dashboard/CategorySummaryTable"
+import { PatrimonialSummaryTable } from "@/components/dashboard/PatrimonialSummaryTable"
 import {
   REPORT_PERIODS,
   REPORT_PERIODS_COUNTS,
@@ -60,6 +61,13 @@ export function DashboardPage() {
   const [catLoading, setCatLoading] = useState(true)
   const [catError, setCatError] = useState<string | null>(null)
   const [catFilters, setCatFilters] = useState<ReportFilters>({
+    period: "month",
+    periods_count: 6,
+  })
+  const [patSummary, setPatSummary] = useState<CategorySummary | null>(null)
+  const [patLoading, setPatLoading] = useState(true)
+  const [patError, setPatError] = useState<string | null>(null)
+  const [patFilters, setPatFilters] = useState<ReportFilters>({
     period: "month",
     periods_count: 6,
   })
@@ -124,6 +132,29 @@ export function DashboardPage() {
     }
   }, [catFilters])
 
+  useEffect(() => {
+    let active = true
+    fetchCategorySummary(patFilters, { onlyPatrimonial: true })
+      .then((data) => {
+        if (active) {
+          setPatSummary(data)
+          setPatError(null)
+          setPatLoading(false)
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setPatError(
+            extractApiError(err) ?? "No pudimos cargar el resumen patrimonial",
+          )
+          setPatLoading(false)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [patFilters])
+
   function updatePeriod(value: string) {
     setLoading(true)
     setFilters((prev) => ({ ...prev, period: value as ReportPeriod }))
@@ -160,6 +191,24 @@ export function DashboardPage() {
     }))
   }
 
+  function updatePatPeriod(value: string) {
+    setPatLoading(true)
+    setPatFilters((prev) => ({ ...prev, period: value as ReportPeriod }))
+  }
+
+  function updatePatPeriodsCount(value: string) {
+    setPatLoading(true)
+    setPatFilters((prev) => ({ ...prev, periods_count: Number(value) }))
+  }
+
+  function updatePatAccount(value: string) {
+    setPatLoading(true)
+    setPatFilters((prev) => ({
+      ...prev,
+      account_id: value === "all" ? undefined : Number(value),
+    }))
+  }
+
   const periodLabel =
     filters.periods_count === 1
       ? PERIOD_LABEL_SINGULAR[filters.period]
@@ -171,6 +220,12 @@ export function DashboardPage() {
       ? PERIOD_LABEL_SINGULAR[catFilters.period]
       : PERIOD_LABEL_PLURAL[catFilters.period]
   const catDescription = `Totales por categoría en los últimos ${catFilters.periods_count} ${catPeriodLabel} (excluye transferencias)`
+
+  const patPeriodLabel =
+    patFilters.periods_count === 1
+      ? PERIOD_LABEL_SINGULAR[patFilters.period]
+      : PERIOD_LABEL_PLURAL[patFilters.period]
+  const patDescription = `Movimientos de categorías patrimoniales en los últimos ${patFilters.periods_count} ${patPeriodLabel} (excluye transferencias)`
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -357,6 +412,95 @@ export function DashboardPage() {
             </div>
           ) : summary ? (
             <IncomeExpenseChart summary={summary} />
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Movimientos patrimoniales por periodo</CardTitle>
+          <CardDescription>{patDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium">Periodo</label>
+              <Select
+                value={patFilters.period}
+                onValueChange={updatePatPeriod}
+              >
+                <SelectTrigger className="w-[160px]" data-testid="pat-period-select">
+                  <SelectValue placeholder="Periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_PERIODS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium">Cantidad</label>
+              <Select
+                value={String(patFilters.periods_count)}
+                onValueChange={updatePatPeriodsCount}
+              >
+                <SelectTrigger className="w-[120px]" data-testid="pat-periods-count-select">
+                  <SelectValue placeholder="Cantidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_PERIODS_COUNTS.map((p) => (
+                    <SelectItem key={p.value} value={String(p.value)}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium">Cuenta</label>
+              <Select
+                value={
+                  patFilters.account_id != null
+                    ? String(patFilters.account_id)
+                    : "all"
+                }
+                onValueChange={updatePatAccount}
+              >
+                <SelectTrigger className="w-[160px]" data-testid="pat-account-select">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {accounts
+                    .filter((a) => a.is_active)
+                    .map((a) => (
+                      <SelectItem key={a.id} value={String(a.id)}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {patError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{patError}</AlertDescription>
+            </Alert>
+          ) : patLoading ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Cargando…
+            </div>
+          ) : patSummary ? (
+            <PatrimonialSummaryTable summary={patSummary} />
           ) : null}
         </CardContent>
       </Card>
