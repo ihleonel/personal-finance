@@ -41,7 +41,8 @@ class UpdateCategoryUseCase:
             return result
 
         has_any_field = any(
-            getattr(data, f) is not None for f in ("name", "kind", "include_in_summaries")
+            getattr(data, f) is not None
+            for f in ("name", "kind", "include_in_summaries", "is_fixed")
         )
         if not has_any_field:
             result.add_error(
@@ -54,6 +55,7 @@ class UpdateCategoryUseCase:
         new_name: Optional[str] = None
         new_kind: Optional[str] = None
         new_include_in_summaries: Optional[bool] = None
+        new_is_fixed: Optional[bool] = None
 
         if data.name is not None:
             if not data.name.strip():
@@ -83,6 +85,9 @@ class UpdateCategoryUseCase:
         if data.include_in_summaries is not None:
             new_include_in_summaries = data.include_in_summaries
 
+        if data.is_fixed is not None:
+            new_is_fixed = data.is_fixed
+
         if (
             new_name is not None
             and new_name != category.name
@@ -102,6 +107,7 @@ class UpdateCategoryUseCase:
             name=new_name,
             kind=new_kind,
             include_in_summaries=new_include_in_summaries,
+            is_fixed=new_is_fixed,
         )
 
         return Result.ok(
@@ -111,6 +117,7 @@ class UpdateCategoryUseCase:
                 name=updated.name,
                 kind=updated.kind,
                 include_in_summaries=updated.include_in_summaries,
+                is_fixed=updated.is_fixed,
                 is_active=updated.is_active,
             )
         )

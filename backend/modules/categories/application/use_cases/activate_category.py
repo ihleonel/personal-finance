@@ -41,6 +41,7 @@ class ActivateCategoryUseCase:
                 name=activated.name,
                 kind=activated.kind,
                 include_in_summaries=activated.include_in_summaries,
+                is_fixed=activated.is_fixed,
                 is_active=activated.is_active,
             )
         )

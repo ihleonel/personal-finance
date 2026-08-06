@@ -20,6 +20,7 @@ import { Separator } from "@/components/ui/separator"
 import { IncomeExpenseChart } from "@/components/dashboard/IncomeExpenseChart"
 import { CategorySummaryTable } from "@/components/dashboard/CategorySummaryTable"
 import { PatrimonialSummaryTable } from "@/components/dashboard/PatrimonialSummaryTable"
+import { FixedVariableSummaryTable } from "@/components/dashboard/FixedVariableSummaryTable"
 import {
   REPORT_PERIODS,
   REPORT_PERIODS_COUNTS,
@@ -68,6 +69,14 @@ export function DashboardPage() {
   const [patLoading, setPatLoading] = useState(true)
   const [patError, setPatError] = useState<string | null>(null)
   const [patFilters, setPatFilters] = useState<ReportFilters>({
+    period: "month",
+    periods_count: 6,
+  })
+  const [fvFixedSummary, setFvFixedSummary] = useState<CategorySummary | null>(null)
+  const [fvVariableSummary, setFvVariableSummary] = useState<CategorySummary | null>(null)
+  const [fvLoading, setFvLoading] = useState(true)
+  const [fvError, setFvError] = useState<string | null>(null)
+  const [fvFilters, setFvFilters] = useState<ReportFilters>({
     period: "month",
     periods_count: 6,
   })
@@ -155,6 +164,33 @@ export function DashboardPage() {
     }
   }, [patFilters])
 
+  useEffect(() => {
+    let active = true
+    Promise.all([
+      fetchCategorySummary(fvFilters, { expenseType: "fixed" }),
+      fetchCategorySummary(fvFilters, { expenseType: "variable" }),
+    ])
+      .then(([fixed, variable]) => {
+        if (active) {
+          setFvFixedSummary(fixed)
+          setFvVariableSummary(variable)
+          setFvError(null)
+          setFvLoading(false)
+        }
+      })
+      .catch((err: unknown) => {
+        if (active) {
+          setFvError(
+            extractApiError(err) ?? "No pudimos cargar el resumen de gastos fijos y variables",
+          )
+          setFvLoading(false)
+        }
+      })
+    return () => {
+      active = false
+    }
+  }, [fvFilters])
+
   function updatePeriod(value: string) {
     setLoading(true)
     setFilters((prev) => ({ ...prev, period: value as ReportPeriod }))
@@ -209,6 +245,24 @@ export function DashboardPage() {
     }))
   }
 
+  function updateFvPeriod(value: string) {
+    setFvLoading(true)
+    setFvFilters((prev) => ({ ...prev, period: value as ReportPeriod }))
+  }
+
+  function updateFvPeriodsCount(value: string) {
+    setFvLoading(true)
+    setFvFilters((prev) => ({ ...prev, periods_count: Number(value) }))
+  }
+
+  function updateFvAccount(value: string) {
+    setFvLoading(true)
+    setFvFilters((prev) => ({
+      ...prev,
+      account_id: value === "all" ? undefined : Number(value),
+    }))
+  }
+
   const periodLabel =
     filters.periods_count === 1
       ? PERIOD_LABEL_SINGULAR[filters.period]
@@ -226,6 +280,12 @@ export function DashboardPage() {
       ? PERIOD_LABEL_SINGULAR[patFilters.period]
       : PERIOD_LABEL_PLURAL[patFilters.period]
   const patDescription = `Movimientos de categorías patrimoniales en los últimos ${patFilters.periods_count} ${patPeriodLabel} (excluye transferencias)`
+
+  const fvPeriodLabel =
+    fvFilters.periods_count === 1
+      ? PERIOD_LABEL_SINGULAR[fvFilters.period]
+      : PERIOD_LABEL_PLURAL[fvFilters.period]
+  const fvDescription = `Totales de gastos fijos y variables en los últimos ${fvFilters.periods_count} ${fvPeriodLabel}`
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -501,6 +561,98 @@ export function DashboardPage() {
             </div>
           ) : patSummary ? (
             <PatrimonialSummaryTable summary={patSummary} />
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Gastos fijos vs variables por periodo</CardTitle>
+          <CardDescription>{fvDescription}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium">Periodo</label>
+              <Select
+                value={fvFilters.period}
+                onValueChange={updateFvPeriod}
+              >
+                <SelectTrigger className="w-[160px]" data-testid="fv-period-select">
+                  <SelectValue placeholder="Periodo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_PERIODS.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium">Cantidad</label>
+              <Select
+                value={String(fvFilters.periods_count)}
+                onValueChange={updateFvPeriodsCount}
+              >
+                <SelectTrigger className="w-[120px]" data-testid="fv-periods-count-select">
+                  <SelectValue placeholder="Cantidad" />
+                </SelectTrigger>
+                <SelectContent>
+                  {REPORT_PERIODS_COUNTS.map((p) => (
+                    <SelectItem key={p.value} value={String(p.value)}>
+                      {p.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-sm font-medium">Cuenta</label>
+              <Select
+                value={
+                  fvFilters.account_id != null
+                    ? String(fvFilters.account_id)
+                    : "all"
+                }
+                onValueChange={updateFvAccount}
+              >
+                <SelectTrigger className="w-[160px]" data-testid="fv-account-select">
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {accounts
+                    .filter((a) => a.is_active)
+                    .map((a) => (
+                      <SelectItem key={a.id} value={String(a.id)}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <Separator />
+
+          {fvError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{fvError}</AlertDescription>
+            </Alert>
+          ) : fvLoading ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Cargando…
+            </div>
+          ) : fvFixedSummary && fvVariableSummary ? (
+            <FixedVariableSummaryTable
+              fixed={fvFixedSummary}
+              variable={fvVariableSummary}
+            />
           ) : null}
         </CardContent>
       </Card>

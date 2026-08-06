@@ -39,6 +39,20 @@ class TestCreateCategoryUseCase(unittest.TestCase):
         self.assertTrue(result.is_success)
         self.assertEqual(result.value.kind, "expense")
 
+    def test_creates_category_with_is_fixed_default_false(self) -> None:
+        result = self.use_case.execute(
+            CreateCategoryInput(owner_id=1, name="Comida", kind="expense")
+        )
+        self.assertTrue(result.is_success)
+        self.assertFalse(result.value.is_fixed)
+
+    def test_creates_fixed_category(self) -> None:
+        result = self.use_case.execute(
+            CreateCategoryInput(owner_id=1, name="Alquiler", kind="expense", is_fixed=True)
+        )
+        self.assertTrue(result.is_success)
+        self.assertTrue(result.value.is_fixed)
+
     def test_fails_when_name_missing(self) -> None:
         result = self.use_case.execute(
             CreateCategoryInput(owner_id=1, name="", kind="expense")

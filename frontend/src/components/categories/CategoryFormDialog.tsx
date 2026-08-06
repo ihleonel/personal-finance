@@ -63,6 +63,7 @@ export function CategoryFormDialog({
       name: "",
       kind: "expense",
       include_in_summaries: true,
+      is_fixed: false,
     },
   })
 
@@ -73,11 +74,13 @@ export function CategoryFormDialog({
           name: category.name,
           kind: category.kind as CategoryInput["kind"],
           include_in_summaries: category.include_in_summaries,
+          is_fixed: category.is_fixed,
         }
       : {
           name: "",
           kind: "expense" as CategoryInput["kind"],
           include_in_summaries: true,
+          is_fixed: false,
         }
     form.reset(initial)
   }, [open, category, form])
@@ -199,6 +202,33 @@ export function CategoryFormDialog({
                       categoría no se sumarán a los totales de ingresos y egresos
                       en el dashboard. Usalo para categorías patrimoniales como
                       ahorro o transferencias.
+                    </p>
+                    <FormMessage />
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="is_fixed"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      disabled={isSubmitting}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel className="cursor-pointer">
+                      Es un gasto o ingreso fijo
+                    </FormLabel>
+                    <p className="text-sm text-muted-foreground">
+                      Marcalo para compromisos recurrentes como alquiler,
+                      expensas, suscripciones o sueldo. Te permite distinguir lo
+                      fijo de lo variable.
                     </p>
                     <FormMessage />
                   </div>

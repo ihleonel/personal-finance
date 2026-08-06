@@ -132,6 +132,7 @@ export const categorySchema = z.object({
     .max(100, "Asegúrate de que el nombre no tenga más de 100 caracteres."),
   kind: z.enum(["income", "expense"]),
   include_in_summaries: z.boolean().default(true),
+  is_fixed: z.boolean().default(false),
 })
 
 export type CategoryInput = z.infer<typeof categorySchema>
@@ -142,6 +143,7 @@ export type Category = {
   name: string
   kind: string
   include_in_summaries: boolean
+  is_fixed: boolean
   is_active: boolean
 }
 

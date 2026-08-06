@@ -5,10 +5,12 @@ from __future__ import annotations
 import unittest
 from datetime import date
 from decimal import Decimal
+from unittest import mock
 
 from django.utils import translation
 
 from modules.reports.application.dtos import CategorySummaryInput
+from modules.reports.application.use_cases import get_category_summary
 from modules.reports.application.use_cases.get_category_summary import (
     GetCategorySummaryUseCase,
 )
@@ -20,9 +22,35 @@ from tests.fakes import (
 )
 
 
+class _FrozenDate(date):
+    """date subclass that pins .today() to a fixed value.
+
+    The GetCategorySummaryUseCase calls ``date.today()`` to determine the
+    "current period". Pinning it here keeps the tests deterministic regardless
+    of the real system clock and of the calendar month the suite runs in.
+    Inheriting from date keeps every other ``date`` feature (constructors,
+    arithmetic, comparisons) working unchanged.
+    """
+
+    _TODAY = date(2026, 7, 20)
+
+    @classmethod
+    def today(cls) -> date:
+        return cls._TODAY
+
+
+def _patch_today() -> unittest.mock._patch:
+    """Patch the ``date`` symbol inside the use case module so ``date.today()``
+    returns the frozen value for the duration of a test."""
+    return mock.patch.object(get_category_summary, "date", _FrozenDate)
+
+
 class TestGetCategorySummaryUseCase(unittest.TestCase):
     def setUp(self) -> None:
         translation.activate("es")
+        self._today_patch = _patch_today()
+        self._today_patch.start()
+        self.addCleanup(self._today_patch.stop)
         self.repo = InMemoryTransactionRepository()
         self.category_repo = InMemoryCategoryRepository()
         self.use_case = GetCategorySummaryUseCase(
@@ -32,9 +60,6 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
 
     def tearDown(self) -> None:
         translation.deactivate_all()
-
-    def _today(self) -> date:
-        return date(2026, 6, 15)
 
     def test_builds_rows_for_active_categories_and_uncategorized(self) -> None:
         cat_food = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
@@ -437,6 +462,9 @@ class TestGetCategorySummaryUseCase(unittest.TestCase):
 class TestGetCategorySummaryAccumulatedWithInitialBalance(unittest.TestCase):
     def setUp(self) -> None:
         translation.activate("es")
+        self._today_patch = _patch_today()
+        self._today_patch.start()
+        self.addCleanup(self._today_patch.stop)
         self.repo = InMemoryTransactionRepository()
         self.category_repo = InMemoryCategoryRepository()
         self.account_repo = InMemoryAccountRepository()
@@ -594,6 +622,9 @@ class TestGetCategorySummaryAccumulatedWithInitialBalance(unittest.TestCase):
 class TestGetCategorySummaryOnlyPatrimonial(unittest.TestCase):
     def setUp(self) -> None:
         translation.activate("es")
+        self._today_patch = _patch_today()
+        self._today_patch.start()
+        self.addCleanup(self._today_patch.stop)
         self.repo = InMemoryTransactionRepository()
         self.category_repo = InMemoryCategoryRepository()
         self.account_repo = InMemoryAccountRepository()
@@ -605,9 +636,6 @@ class TestGetCategorySummaryOnlyPatrimonial(unittest.TestCase):
 
     def tearDown(self) -> None:
         translation.deactivate_all()
-
-    def _today(self) -> date:
-        return date(2026, 6, 15)
 
     def test_only_patrimonial_returns_only_patrimonial_categories(self) -> None:
         cat_food = self.category_repo.seed(owner_id=1, name="Comida", kind="expense")
@@ -713,3 +741,189 @@ class TestGetCategorySummaryOnlyPatrimonial(unittest.TestCase):
         names = [r.name for r in rows]
         self.assertEqual(names, ["Comida"])
         self.assertNotIn("Aporte", names)
+
+
+class TestGetCategorySummaryExpenseType(unittest.TestCase):
+    def setUp(self) -> None:
+        translation.activate("es")
+        self._today_patch = _patch_today()
+        self._today_patch.start()
+        self.addCleanup(self._today_patch.stop)
+        self.repo = InMemoryTransactionRepository()
+        self.category_repo = InMemoryCategoryRepository()
+        self.account_repo = InMemoryAccountRepository()
+        self.use_case = GetCategorySummaryUseCase(
+            repository=self.repo,
+            category_repository=self.category_repo,
+            account_repository=self.account_repo,
+        )
+
+    def tearDown(self) -> None:
+        translation.deactivate_all()
+
+    def test_expense_type_fixed_returns_only_fixed_expense_categories(self) -> None:
+        cat_rent = self.category_repo.seed(
+            owner_id=1, name="Alquiler", kind="expense", is_fixed=True
+        )
+        cat_eat = self.category_repo.seed(
+            owner_id=1, name="Salidas", kind="expense", is_fixed=False
+        )
+        cat_salary = self.category_repo.seed(owner_id=1, name="Sueldo", kind="income")
+        cat_pat = self.category_repo.seed(
+            owner_id=1, name="Aporte", kind="income", include_in_summaries=False
+        )
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("500"), date=date(2026, 7, 5),
+                       category_id=cat_rent.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("100"), date=date(2026, 7, 6),
+                       category_id=cat_eat.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="income",
+                       amount=Decimal("1000"), date=date(2026, 7, 5),
+                       category_id=cat_salary.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="income",
+                       amount=Decimal("2000"), date=date(2026, 7, 6),
+                       category_id=cat_pat.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type="fixed")
+        )
+        self.assertTrue(result.is_success)
+        rows = result.value.rows
+        names = [r.name for r in rows]
+        # Only Alquiler (fixed expense). Variable expense, income and
+        # patrimonial categories are all excluded.
+        self.assertEqual(names, ["Alquiler"])
+        rent = rows[0]
+        self.assertEqual(rent.kind, "expense")
+        self.assertEqual(rent.amounts[-1], "500.00")
+        # Totals reflect only the fixed expense: -500
+        self.assertEqual(result.value.totals.amounts[-1], "-500.00")
+
+    def test_expense_type_variable_returns_only_variable_expense_categories(self) -> None:
+        cat_rent = self.category_repo.seed(
+            owner_id=1, name="Alquiler", kind="expense", is_fixed=True
+        )
+        cat_eat = self.category_repo.seed(
+            owner_id=1, name="Salidas", kind="expense", is_fixed=False
+        )
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("500"), date=date(2026, 7, 5),
+                       category_id=cat_rent.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("100"), date=date(2026, 7, 6),
+                       category_id=cat_eat.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type="variable")
+        )
+        self.assertTrue(result.is_success)
+        rows = result.value.rows
+        names = [r.name for r in rows]
+        self.assertEqual(names, ["Salidas"])
+        self.assertEqual(result.value.totals.amounts[-1], "-100.00")
+
+    def test_expense_type_excludes_uncategorized_transactions(self) -> None:
+        cat_rent = self.category_repo.seed(
+            owner_id=1, name="Alquiler", kind="expense", is_fixed=True
+        )
+        # Uncat tx should not be included in fixed totals.
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("500"), date=date(2026, 7, 5),
+                       category_id=cat_rent.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("777"), date=date(2026, 7, 6),
+                       category_id=None)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type="fixed")
+        )
+        self.assertTrue(result.is_success)
+        rows = result.value.rows
+        # No "Sin categoría" row when expense_type is set
+        self.assertFalse(any(r.is_uncategorized for r in rows))
+        self.assertEqual(result.value.totals.amounts[-1], "-500.00")
+
+    def test_expense_type_excludes_patrimonial_categories(self) -> None:
+        cat_pat_expense = self.category_repo.seed(
+            owner_id=1, name="Préstamo", kind="expense",
+            include_in_summaries=False, is_fixed=True
+        )
+        cat_rent = self.category_repo.seed(
+            owner_id=1, name="Alquiler", kind="expense", is_fixed=True
+        )
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("1000"), date=date(2026, 7, 5),
+                       category_id=cat_pat_expense.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("500"), date=date(2026, 7, 6),
+                       category_id=cat_rent.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type="fixed")
+        )
+        self.assertTrue(result.is_success)
+        names = [r.name for r in result.value.rows]
+        # Patrimonial category excluded; only the summary-included fixed one.
+        self.assertEqual(names, ["Alquiler"])
+        self.assertEqual(result.value.totals.amounts[-1], "-500.00")
+
+    def test_expense_type_excludes_inactive_categories_from_amounts(self) -> None:
+        cat_rent = self.category_repo.seed(
+            owner_id=1, name="Alquiler", kind="expense", is_fixed=True,
+            is_active=False
+        )
+        # No transaction needed: row still appears (inactive categories are
+        # rendered), but amount is 0.
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type="fixed")
+        )
+        self.assertTrue(result.is_success)
+        rows = result.value.rows
+        rent = [r for r in rows if r.name == "Alquiler"][0]
+        self.assertFalse(rent.is_active)
+        self.assertTrue(all(a == "0.00" for a in rent.amounts))
+
+    def test_expense_type_invalid_returns_error(self) -> None:
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type="weird")
+        )
+        self.assertFalse(result.is_success)
+        self.assertEqual(result.errors[0].code, "reports.expense_type.invalid")
+
+    def test_expense_type_none_keeps_default_behavior(self) -> None:
+        cat_rent = self.category_repo.seed(
+            owner_id=1, name="Alquiler", kind="expense", is_fixed=True
+        )
+        cat_eat = self.category_repo.seed(
+            owner_id=1, name="Salidas", kind="expense", is_fixed=False
+        )
+        cat_salary = self.category_repo.seed(owner_id=1, name="Sueldo", kind="income")
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("500"), date=date(2026, 7, 5),
+                       category_id=cat_rent.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="expense",
+                       amount=Decimal("100"), date=date(2026, 7, 6),
+                       category_id=cat_eat.id)
+        self.repo.seed(owner_id=1, account_id=10, kind="income",
+                       amount=Decimal("1000"), date=date(2026, 7, 5),
+                       category_id=cat_salary.id)
+
+        result = self.use_case.execute(
+            CategorySummaryInput(owner_id=1, period="month", periods_count=1,
+                                 expense_type=None)
+        )
+        self.assertTrue(result.is_success)
+        names = [r.name for r in result.value.rows]
+        # No filter applied: includes income, both expenses.
+        self.assertIn("Sueldo", names)
+        self.assertIn("Alquiler", names)
+        self.assertIn("Salidas", names)
+        # Net: 1000 - 500 - 100 = 400
+        self.assertEqual(result.value.totals.amounts[-1], "400.00")

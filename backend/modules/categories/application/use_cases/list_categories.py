@@ -20,6 +20,7 @@ class ListCategoriesUseCase:
                 name=c.name,
                 kind=c.kind,
                 include_in_summaries=c.include_in_summaries,
+                is_fixed=c.is_fixed,
                 is_active=c.is_active,
             )
             for c in categories
