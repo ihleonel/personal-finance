@@ -204,7 +204,14 @@ export function CategoriesPage() {
                   return (
                     <TableRow key={category.id}>
                       <TableCell className="font-medium">
-                        {category.name}
+                        <div className="flex items-center gap-2">
+                          {category.name}
+                          {category.is_fixed ? (
+                            <span className="inline-flex items-center rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-secondary-foreground">
+                              Fijo
+                            </span>
+                          ) : null}
+                        </div>
                       </TableCell>
                       <TableCell>{kindLabel}</TableCell>
                       <TableCell className="hidden md:table-cell">

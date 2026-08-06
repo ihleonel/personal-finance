@@ -25,6 +25,10 @@ class CreateCategorySerializer(serializers.Serializer):
         required=False,
         default=True,
     )
+    is_fixed = serializers.BooleanField(
+        required=False,
+        default=False,
+    )
 
     def to_dto(self) -> dict:
         data = self.validated_data
@@ -32,6 +36,7 @@ class CreateCategorySerializer(serializers.Serializer):
             "name": data["name"],
             "kind": data["kind"],
             "include_in_summaries": data.get("include_in_summaries", True),
+            "is_fixed": data.get("is_fixed", False),
         }
 
 
@@ -59,6 +64,11 @@ class UpdateCategorySerializer(serializers.Serializer):
         allow_null=True,
         default=None,
     )
+    is_fixed = serializers.BooleanField(
+        required=False,
+        allow_null=True,
+        default=None,
+    )
 
     def validate(self, attrs):
         if not attrs:
@@ -76,4 +86,6 @@ class UpdateCategorySerializer(serializers.Serializer):
             out["kind"] = data["kind"]
         if "include_in_summaries" in data and data["include_in_summaries"] is not None:
             out["include_in_summaries"] = data["include_in_summaries"]
+        if "is_fixed" in data and data["is_fixed"] is not None:
+            out["is_fixed"] = data["is_fixed"]
         return out

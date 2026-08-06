@@ -41,6 +41,7 @@ class DeactivateCategoryUseCase:
                 name=deactivated.name,
                 kind=deactivated.kind,
                 include_in_summaries=deactivated.include_in_summaries,
+                is_fixed=deactivated.is_fixed,
                 is_active=deactivated.is_active,
             )
         )

@@ -44,6 +44,13 @@ class GetCategorySummaryUseCase:
                 str(_("La cantidad de periodos debe ser un entero entre 1 y 12.")),
             )
 
+        if data.expense_type is not None and data.expense_type not in ("fixed", "variable"):
+            result.add_error(
+                "expense_type",
+                "reports.expense_type.invalid",
+                str(_("El tipo de gasto debe ser 'fixed' o 'variable'.")),
+            )
+
         if result.has_errors:
             return result
 
@@ -68,15 +75,38 @@ class GetCategorySummaryUseCase:
             included_category_ids: set[int] = {
                 c.id for c in categories if not c.include_in_summaries
             }
-            cat_filter = lambda c: not c.include_in_summaries
 
-            def is_tx_included(category_id: Optional[int]) -> bool:
-                return category_id is not None and category_id in included_category_ids
+            def cat_filter(c) -> bool:
+                return not c.include_in_summaries
         else:
             included_category_ids = {
                 c.id for c in categories if c.include_in_summaries
             }
-            cat_filter = lambda c: c.include_in_summaries
+
+            def cat_filter(c) -> bool:
+                return c.include_in_summaries
+
+        if data.expense_type is not None:
+            want_fixed = data.expense_type == "fixed"
+            included_category_ids = {
+                c.id for c in categories
+                if c.include_in_summaries
+                and c.kind == "expense"
+                and c.is_fixed == want_fixed
+            }
+
+            def cat_filter(c) -> bool:  # type: ignore[no-redef]
+                return (
+                    c.include_in_summaries
+                    and c.kind == "expense"
+                    and c.is_fixed == want_fixed
+                )
+
+        if data.expense_type is not None or data.only_patrimonial:
+
+            def is_tx_included(category_id: Optional[int]) -> bool:
+                return category_id is not None and category_id in included_category_ids
+        else:
 
             def is_tx_included(category_id: Optional[int]) -> bool:
                 return category_id is None or category_id in included_category_ids

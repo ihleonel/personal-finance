@@ -36,6 +36,23 @@ class TestUpdateCategoryUseCase(unittest.TestCase):
         self.assertTrue(result.is_success)
         self.assertEqual(result.value.kind, "income")
 
+    def test_updates_is_fixed(self) -> None:
+        result = self.use_case.execute(
+            owner_id=1, category_id=self.category.id, data=UpdateCategoryInput(is_fixed=True)
+        )
+        self.assertTrue(result.is_success)
+        self.assertTrue(result.value.is_fixed)
+
+    def test_partial_update_keeps_is_fixed(self) -> None:
+        fixed = self.repo.seed(owner_id=1, name="Alquiler", kind="expense", is_fixed=True)
+        result = self.use_case.execute(
+            owner_id=1,
+            category_id=fixed.id,
+            data=UpdateCategoryInput(name="Alquiler mensual"),
+        )
+        self.assertTrue(result.is_success)
+        self.assertTrue(result.value.is_fixed)
+
     def test_updates_multiple_fields(self) -> None:
         result = self.use_case.execute(
             owner_id=1,

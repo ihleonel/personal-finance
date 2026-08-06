@@ -32,6 +32,7 @@ class GetCategoryUseCase:
                 name=category.name,
                 kind=category.kind,
                 include_in_summaries=category.include_in_summaries,
+                is_fixed=category.is_fixed,
                 is_active=category.is_active,
             )
         )

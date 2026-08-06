@@ -227,7 +227,14 @@ class InMemoryCategoryRepository:
     _by_id: dict[int, Category] = field(default_factory=dict)
     _next_id: int = field(default=1)
 
-    def save(self, owner_id: int, name: str, kind: str, include_in_summaries: bool = True) -> Category:
+    def save(
+        self,
+        owner_id: int,
+        name: str,
+        kind: str,
+        include_in_summaries: bool = True,
+        is_fixed: bool = False,
+    ) -> Category:
         category_id = self._next_id
         self._next_id += 1
         category = Category(
@@ -236,6 +243,7 @@ class InMemoryCategoryRepository:
             name=name,
             kind=kind,
             include_in_summaries=include_in_summaries,
+            is_fixed=is_fixed,
             is_active=True,
         )
         self._by_id[category_id] = category
@@ -253,6 +261,7 @@ class InMemoryCategoryRepository:
         name: Optional[str] = None,
         kind: Optional[str] = None,
         include_in_summaries: Optional[bool] = None,
+        is_fixed: Optional[bool] = None,
     ) -> Category:
         current = self._by_id[category_id]
         updated = replace(
@@ -260,6 +269,7 @@ class InMemoryCategoryRepository:
             name=name if name is not None else current.name,
             kind=kind if kind is not None else current.kind,
             include_in_summaries=include_in_summaries if include_in_summaries is not None else current.include_in_summaries,
+            is_fixed=is_fixed if is_fixed is not None else current.is_fixed,
         )
         self._by_id[category_id] = updated
         return updated
@@ -288,6 +298,7 @@ class InMemoryCategoryRepository:
         name: str,
         kind: str = "expense",
         include_in_summaries: bool = True,
+        is_fixed: bool = False,
         is_active: bool = True,
     ) -> Category:
         category_id = self._next_id
@@ -298,6 +309,7 @@ class InMemoryCategoryRepository:
             name=name,
             kind=kind,
             include_in_summaries=include_in_summaries,
+            is_fixed=is_fixed,
             is_active=is_active,
         )
         self._by_id[category_id] = category
