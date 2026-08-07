@@ -226,9 +226,10 @@ describe('Dashboard - Gastos fijos vs variables', () => {
         cy.get('[data-testid="fv-totals-row"]').within(() => {
           cy.contains('-620,50').should('be.visible')
         })
-        // Fijos -500 and variables -120.50 present too
-        cy.get('[data-testid="fv-fixed-row"]').contains('-500,00').should('be.visible')
-        cy.get('[data-testid="fv-variable-row"]').contains('-120,50').should('be.visible')
+        // Fijos and variables display the absolute value in red (sign conveyed by color),
+        // so 500.00 and 120.50 instead of -500.00 / -120.50.
+        cy.get('[data-testid="fv-fixed-row"]').contains('500,00').should('be.visible')
+        cy.get('[data-testid="fv-variable-row"]').contains('120,50').should('be.visible')
       })
   })
 

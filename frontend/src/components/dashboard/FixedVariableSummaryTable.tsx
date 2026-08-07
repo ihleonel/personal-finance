@@ -70,7 +70,8 @@ export function FixedVariableSummaryTable({
                 </TableCell>
                 {fixed.totals.amounts.map((amt, i) => {
                   const value = Number(amt)
-                  const display = value === 0 ? "—" : formatAmount(amt)
+                  const display =
+                    value === 0 ? "—" : formatAmount(Math.abs(value))
                   const color =
                     value === 0
                       ? "text-muted-foreground"
@@ -95,7 +96,8 @@ export function FixedVariableSummaryTable({
                 </TableCell>
                 {variable.totals.amounts.map((amt, i) => {
                   const value = Number(amt)
-                  const display = value === 0 ? "—" : formatAmount(amt)
+                  const display =
+                    value === 0 ? "—" : formatAmount(Math.abs(value))
                   const color =
                     value === 0
                       ? "text-muted-foreground"
