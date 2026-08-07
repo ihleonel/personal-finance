@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 from datetime import date, timedelta
 from decimal import Decimal
+from typing import Optional
 
 from django.utils import translation
 
@@ -13,7 +14,11 @@ from modules.reports.application.use_cases.get_income_expense_summary import (
     GetIncomeExpenseSummaryUseCase,
 )
 
-from tests.fakes import InMemoryAccountRepository, InMemoryTransactionRepository
+from tests.fakes import (
+    InMemoryAccountRepository,
+    InMemoryCategoryRepository,
+    InMemoryTransactionRepository,
+)
 
 
 class TestGetIncomeExpenseSummaryUseCase(unittest.TestCase):
@@ -455,6 +460,155 @@ class TestIncomeExpenseAccumulated(unittest.TestCase):
         # initial = 500 (only active) + 400 = 900 (inactive 9999 excluded)
         for amt in out.accumulated:
             self.assertEqual(amt, "900.00")
+
+
+class TestGetIncomeExpenseSummaryFixedVariableSplit(unittest.TestCase):
+    def setUp(self) -> None:
+        translation.activate("es")
+        self.tx_repo = InMemoryTransactionRepository()
+        self.category_repo = InMemoryCategoryRepository()
+        self.use_case = GetIncomeExpenseSummaryUseCase(
+            repository=self.tx_repo,
+            category_repository=self.category_repo,
+        )
+        self.today = date.today()
+        self.owner_id = 1
+
+    def tearDown(self) -> None:
+        translation.deactivate_all()
+
+    def _months_ago_date(self, months_back: int, day: int = 15) -> date:
+        idx = self.today.year * 12 + (self.today.month - 1) - months_back
+        year, month = divmod(idx, 12)
+        return date(year, month + 1, day)
+
+    def _seed(
+        self,
+        tx_date: date,
+        kind: str,
+        amount: str,
+        account_id: int = 10,
+        category_id: Optional[int] = None,
+    ) -> None:
+        self.tx_repo.seed(
+            owner_id=self.owner_id,
+            account_id=account_id,
+            kind=kind,
+            amount=Decimal(amount),
+            date=tx_date,
+            description="x",
+            category_id=category_id,
+        )
+
+    def test_expense_with_fixed_category_lands_in_expense_fixed(self) -> None:
+        cat_fixed = self.category_repo.seed(
+            owner_id=self.owner_id, name="Alquiler", kind="expense", is_fixed=True
+        )
+        self._seed(self.today, "expense", "500.00", category_id=cat_fixed.id)
+
+        result = self.use_case.execute(
+            IncomeExpenseSummaryInput(
+                owner_id=self.owner_id, period="month", periods_count=2
+            )
+        )
+        self.assertTrue(result.is_success)
+        out = result.value
+        self.assertEqual(out.current_period.expense_fixed, "500.00")
+        self.assertEqual(out.current_period.expense_variable, "0.00")
+        self.assertEqual(out.current_period.expense, "500.00")
+
+    def test_expense_with_variable_category_lands_in_expense_variable(self) -> None:
+        cat_var = self.category_repo.seed(
+            owner_id=self.owner_id, name="Salidas a comer", kind="expense", is_fixed=False
+        )
+        self._seed(self.today, "expense", "120.00", category_id=cat_var.id)
+
+        result = self.use_case.execute(
+            IncomeExpenseSummaryInput(
+                owner_id=self.owner_id, period="month", periods_count=2
+            )
+        )
+        self.assertTrue(result.is_success)
+        out = result.value
+        self.assertEqual(out.current_period.expense_fixed, "0.00")
+        self.assertEqual(out.current_period.expense_variable, "120.00")
+        self.assertEqual(out.current_period.expense, "120.00")
+
+    def test_uncategorized_expense_lands_in_expense_variable(self) -> None:
+        self._seed(self.today, "expense", "75.00", category_id=None)
+
+        result = self.use_case.execute(
+            IncomeExpenseSummaryInput(
+                owner_id=self.owner_id, period="month", periods_count=2
+            )
+        )
+        self.assertTrue(result.is_success)
+        out = result.value
+        self.assertEqual(out.current_period.expense_fixed, "0.00")
+        self.assertEqual(out.current_period.expense_variable, "75.00")
+        self.assertEqual(out.current_period.expense, "75.00")
+
+    def test_patrimonial_expense_excluded_from_fixed_and_variable(self) -> None:
+        cat_pat = self.category_repo.seed(
+            owner_id=self.owner_id,
+            name="Aporte de capital",
+            kind="expense",
+            include_in_summaries=False,
+            is_fixed=True,
+        )
+        self._seed(self.today, "expense", "1000.00", category_id=cat_pat.id)
+
+        result = self.use_case.execute(
+            IncomeExpenseSummaryInput(
+                owner_id=self.owner_id, period="month", periods_count=2
+            )
+        )
+        self.assertTrue(result.is_success)
+        out = result.value
+        self.assertEqual(out.current_period.expense, "0.00")
+        self.assertEqual(out.current_period.expense_fixed, "0.00")
+        self.assertEqual(out.current_period.expense_variable, "0.00")
+        self.assertEqual(out.current_period.balance_movement_outflow, "1000.00")
+
+    def test_split_invariant_fixed_plus_variable_equals_expense(self) -> None:
+        cat_fixed = self.category_repo.seed(
+            owner_id=self.owner_id, name="Alquiler", kind="expense", is_fixed=True
+        )
+        cat_var = self.category_repo.seed(
+            owner_id=self.owner_id, name="Salidas", kind="expense", is_fixed=False
+        )
+        target_date = self._months_ago_date(2)
+        self._seed(target_date, "expense", "300.00", category_id=cat_fixed.id)
+        self._seed(target_date, "expense", "200.00", category_id=cat_var.id)
+        self._seed(self.today, "expense", "100.00", category_id=None)
+
+        result = self.use_case.execute(
+            IncomeExpenseSummaryInput(
+                owner_id=self.owner_id, period="month", periods_count=3
+            )
+        )
+        self.assertTrue(result.is_success)
+        out = result.value
+
+        for b in out.buckets:
+            self.assertEqual(
+                Decimal(b.expense_fixed) + Decimal(b.expense_variable),
+                Decimal(b.expense),
+                msg=f"Bucket {b.key} violates fixed+variable==expense",
+            )
+        self.assertEqual(
+            Decimal(out.current_period.expense_fixed)
+            + Decimal(out.current_period.expense_variable),
+            Decimal(out.current_period.expense),
+        )
+
+        target_bucket = next(b for b in out.buckets if Decimal(b.expense) > 0)
+        self.assertEqual(target_bucket.expense_fixed, "300.00")
+        self.assertEqual(target_bucket.expense_variable, "200.00")
+        self.assertEqual(target_bucket.expense, "500.00")
+        self.assertEqual(out.current_period.expense_fixed, "0.00")
+        self.assertEqual(out.current_period.expense_variable, "100.00")
+        self.assertEqual(out.current_period.expense, "100.00")
 
 
 if __name__ == "__main__":

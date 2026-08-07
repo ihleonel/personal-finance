@@ -26,9 +26,13 @@ const chartConfig = {
     label: "Ingresos",
     color: "var(--chart-1)",
   },
-  expense: {
-    label: "Egresos",
+  expenseFixed: {
+    label: "Costos fijos",
     color: "var(--chart-2)",
+  },
+  expenseVariable: {
+    label: "Costos variables",
+    color: "var(--chart-5)",
   },
 } satisfies ChartConfig
 
@@ -47,7 +51,12 @@ function computeXLabel(period: string, key: string): string {
   return key
 }
 
-function roundedBarShape(props: unknown) {
+type RoundedBarOptions = {
+  isTopOfStack?: boolean
+}
+
+function roundedBarShape(props: unknown, opts: RoundedBarOptions = {}) {
+  const isTopOfStack = opts.isTopOfStack ?? true
   const p = props as {
     isPartial?: boolean
     x?: number
@@ -55,35 +64,73 @@ function roundedBarShape(props: unknown) {
     width?: number
     height?: number
     fill?: string
+    payload?: { isPartial?: boolean }
   }
-  if (p.isPartial) {
+  const isPartial = p.isPartial ?? p.payload?.isPartial
+  const x = p.x ?? 0
+  const y = p.y ?? 0
+  const width = p.width ?? 0
+  const height = p.height ?? 0
+  const fill = p.fill ?? "currentColor"
+  const r = 4
+  const tl = isTopOfStack ? r : 0
+  const tr = isTopOfStack ? r : 0
+  const br = isTopOfStack ? 0 : r
+  const bl = isTopOfStack ? 0 : r
+  const d = roundedRectPath(x, y, width, height, tl, tr, br, bl)
+  if (isPartial) {
     return (
-      <rect
-        x={p.x}
-        y={p.y}
-        width={p.width}
-        height={p.height}
-        fill={p.fill}
+      <path
+        d={d}
+        fill={fill}
         fillOpacity={0.55}
-        stroke={p.fill}
+        stroke={fill}
         strokeDasharray="4 4"
         strokeWidth={1.5}
-        rx={4}
-        ry={4}
       />
     )
   }
-  return (
-    <rect
-      x={p.x}
-      y={p.y}
-      width={p.width}
-      height={p.height}
-      fill={p.fill}
-      rx={4}
-      ry={4}
-    />
-  )
+  return <path d={d} fill={fill} />
+}
+
+function roundedRectPath(
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  tl: number,
+  tr: number,
+  br: number,
+  bl: number,
+): string {
+  if (w <= 0 || h <= 0) return ""
+  const maxR = Math.min(w / 2, h / 2)
+  const tlr = Math.min(tl, maxR)
+  const trr = Math.min(tr, maxR)
+  const brr = Math.min(br, maxR)
+  const blr = Math.min(bl, maxR)
+  const x0 = x
+  const x1 = x + w
+  const y0 = y
+  const y1 = y + h
+  return [
+    `M ${x0 + tlr} ${y0}`,
+    `H ${x1 - trr}`,
+    trr > 0 ? `A ${trr} ${trr} 0 0 1 ${x1} ${y0 + trr}` : "",
+    `V ${y1 - brr}`,
+    brr > 0 ? `A ${brr} ${brr} 0 0 1 ${x1 - brr} ${y1}` : "",
+    `H ${x0 + blr}`,
+    blr > 0 ? `A ${blr} ${blr} 0 0 1 ${x0} ${y1 - blr}` : "",
+    `V ${y0 + tlr}`,
+    tlr > 0 ? `A ${tlr} ${tlr} 0 0 1 ${x0 + tlr} ${y0}` : "",
+    "Z",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
+function shapeForStack(isTopOfStack: boolean) {
+  return (props: unknown) => roundedBarShape(props, { isTopOfStack })
 }
 
 export function IncomeExpenseChart({ summary }: IncomeExpenseChartProps) {
@@ -92,17 +139,26 @@ export function IncomeExpenseChart({ summary }: IncomeExpenseChartProps) {
       label: b.label,
       xLabel: computeXLabel(summary.period, b.key),
       income: Number(b.income),
-      expense: Number(b.expense),
+      expenseFixed: Number(b.expense_fixed ?? "0"),
+      expenseVariable: Number(b.expense_variable ?? "0"),
       isPartial: false,
     })),
     {
       label: summary.current_period.label,
       xLabel: computeXLabel(summary.period, summary.current_period.key),
       income: Number(summary.current_period.income),
-      expense: Number(summary.current_period.expense),
+      expenseFixed: Number(summary.current_period.expense_fixed ?? "0"),
+      expenseVariable: Number(summary.current_period.expense_variable ?? "0"),
       isPartial: true,
     },
   ]
+
+  const labelFor = (name: string) => {
+    if (name === "income") return "Ingresos"
+    if (name === "expenseFixed") return "Costos fijos"
+    if (name === "expenseVariable") return "Costos variables"
+    return name
+  }
 
   return (
     <div data-testid="income-expense-chart">
@@ -141,7 +197,7 @@ export function IncomeExpenseChart({ summary }: IncomeExpenseChartProps) {
                 formatter={(value, name) => (
                   <div className="flex flex-1 justify-between leading-none">
                     <span className="text-muted-foreground">
-                      {name === "income" ? "Ingresos" : "Egresos"}
+                      {labelFor(String(name))}
                     </span>
                     <span className="font-mono font-medium text-foreground tabular-nums">
                       {formatAmount(Number(value))}
@@ -151,16 +207,40 @@ export function IncomeExpenseChart({ summary }: IncomeExpenseChartProps) {
               />
             }
           />
-          <ChartLegend content={<ChartLegendContent />} />
+          <ChartLegend
+            content={<ChartLegendContent />}
+            payload={[
+              { value: "Ingresos", type: "square", id: "income", color: "var(--chart-1)" },
+              {
+                value: "Costos fijos",
+                type: "square",
+                id: "expenseFixed",
+                color: "var(--chart-2)",
+              },
+              {
+                value: "Costos variables",
+                type: "square",
+                id: "expenseVariable",
+                color: "var(--chart-5)",
+              },
+            ]}
+          />
           <Bar
             dataKey="income"
             fill="var(--color-income)"
-            shape={roundedBarShape}
+            shape={shapeForStack(true)}
           />
           <Bar
-            dataKey="expense"
-            fill="var(--color-expense)"
-            shape={roundedBarShape}
+            dataKey="expenseFixed"
+            stackId="expense"
+            fill="var(--color-expenseFixed)"
+            shape={shapeForStack(false)}
+          />
+          <Bar
+            dataKey="expenseVariable"
+            stackId="expense"
+            fill="var(--color-expenseVariable)"
+            shape={shapeForStack(true)}
           />
         </RechartsBarChart>
       </ChartContainer>
