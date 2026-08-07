@@ -321,6 +321,8 @@ export type PeriodBucket = {
   label: string
   income: string
   expense: string
+  expense_fixed?: string
+  expense_variable?: string
   net: string
   balance_movement_inflow?: string
   balance_movement_outflow?: string

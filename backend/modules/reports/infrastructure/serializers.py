@@ -70,15 +70,6 @@ class CategorySummaryQuerySerializer(serializers.Serializer):
             "invalid": "El valor de only_patrimonial no es válido.",
         },
     )
-    expense_type = serializers.ChoiceField(
-        choices=[("fixed", "fixed"), ("variable", "variable")],
-        required=False,
-        allow_null=True,
-        default=None,
-        error_messages={
-            "invalid_choice": "El tipo de gasto debe ser 'fixed' o 'variable'.",
-        },
-    )
 
     def to_dto(self) -> dict:
         data = self.validated_data
@@ -87,5 +78,4 @@ class CategorySummaryQuerySerializer(serializers.Serializer):
             "periods_count": data["periods_count"],
             "account_id": data.get("account_id"),
             "only_patrimonial": data.get("only_patrimonial", False),
-            "expense_type": data.get("expense_type"),
         }

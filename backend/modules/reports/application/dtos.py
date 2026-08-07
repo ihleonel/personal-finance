@@ -19,6 +19,8 @@ class PeriodBucketOutput:
     income: str
     expense: str
     net: str
+    expense_fixed: str = "0.00"
+    expense_variable: str = "0.00"
     balance_movement_inflow: str = "0.00"
     balance_movement_outflow: str = "0.00"
     balance_movement_net: str = "0.00"
@@ -34,6 +36,8 @@ class CurrentPeriodOutput:
     is_partial: bool
     days_elapsed: int
     days_total: int
+    expense_fixed: str = "0.00"
+    expense_variable: str = "0.00"
     balance_movement_inflow: str = "0.00"
     balance_movement_outflow: str = "0.00"
     balance_movement_net: str = "0.00"
@@ -55,7 +59,6 @@ class CategorySummaryInput:
     periods_count: int
     account_id: Optional[int] = None
     only_patrimonial: bool = False
-    expense_type: Optional[str] = None
 
 
 @dataclass(frozen=True)
