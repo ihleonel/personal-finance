@@ -32,7 +32,10 @@ const chartConfig = {
   },
   expenseVariable: {
     label: "Costos variables",
-    color: "var(--chart-5)",
+    theme: {
+      light: "var(--chart-6)",
+      dark: "var(--chart-6)",
+    },
   },
 } satisfies ChartConfig
 
@@ -221,7 +224,7 @@ export function IncomeExpenseChart({ summary }: IncomeExpenseChartProps) {
                 value: "Costos variables",
                 type: "square",
                 id: "expenseVariable",
-                color: "var(--chart-5)",
+                color: "var(--chart-6)",
               },
             ]}
           />
