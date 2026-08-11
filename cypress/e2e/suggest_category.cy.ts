@@ -237,65 +237,71 @@ describe('Sugerencia de categoría', () => {
     const txDescription = `COMPRA COTO ${Date.now()}`
     deleteAllTransactions()
       .then(() => seedWorld())
-      .then(({ account, category }: Seed) => {
+      .then(({ account }: Seed) =>
         createTransactionViaApi({
           account_id: account.id,
           kind: 'expense',
           amount: '1500',
           date: todayISO(),
           description: txDescription,
-        })
-      })
-      .then(() => {
+        }),
+      )
+      .then((res: Cypress.Response<unknown>) => {
+        const tx = res.body as { id: number }
         cy.visit('/transactions')
         cy.contains(txDescription, { timeout: 15000 }).should('be.visible')
 
-        // Abrir el dropdown de la primera fila sin categoría
-        cy.get('main table tbody tr')
-          .first()
-          .find('button')
-          .contains('Sin categoría')
+        // Abrir el diálogo de categoría de la transacción sin categoría
+        cy.get(`[data-testid="tx-category-cell-${tx.id}"]`)
+          .should('be.visible')
           .click()
 
-        // Aparece la sugerencia "Usar Comida E2E"
-        cy.get('[role="menu"]')
-          .contains('Usar Comida E2E')
+        // El diálogo muestra la sugerencia basada en la regla
+        cy.get('[role="dialog"]')
+          .should('be.visible')
+          .within(() => {
+            cy.contains('Sugerencia:').should('be.visible')
+            cy.contains('Comida E2E').should('be.visible')
+          })
+
+        // Aplicar la sugerencia
+        cy.get(`[data-testid="tx-category-suggestion-${tx.id}"]`)
           .should('be.visible')
           .click()
 
         // Tras aplicar, la celda muestra el nombre de la categoría
         cy.contains(txDescription, { timeout: 15000 }).should('be.visible')
-        cy.get('main table tbody tr')
-          .first()
+        cy.get(`[data-testid="tx-category-cell-${tx.id}"]`)
           .contains('Comida E2E')
           .should('be.visible')
       })
   })
 
-  it('muestra "Sin sugerencia" cuando no hay regla que matchee', () => {
+  it('muestra que no hay sugerencia cuando no hay regla que matchee', () => {
     const txDescription = `Sin match ${Date.now()}`
     deleteAllTransactions()
       .then(() => seedWorld())
-      .then(({ account }: Seed) => {
+      .then(({ account }: Seed) =>
         createTransactionViaApi({
           account_id: account.id,
           kind: 'expense',
           amount: '200',
           date: todayISO(),
           description: txDescription,
-        })
-      })
-      .then(() => {
+        }),
+      )
+      .then((res: Cypress.Response<unknown>) => {
+        const tx = res.body as { id: number }
         cy.visit('/transactions')
         cy.contains(txDescription, { timeout: 15000 }).should('be.visible')
 
-        cy.get('main table tbody tr')
-          .first()
-          .find('button')
-          .contains('Sin categoría')
+        cy.get(`[data-testid="tx-category-cell-${tx.id}"]`)
+          .should('be.visible')
           .click()
 
-        cy.get('[role="menu"]').contains('Sin sugerencia').should('be.visible')
+        cy.get('[role="dialog"]')
+          .contains('No encontramos una sugerencia para esta descripción.')
+          .should('be.visible')
       })
   })
 })
